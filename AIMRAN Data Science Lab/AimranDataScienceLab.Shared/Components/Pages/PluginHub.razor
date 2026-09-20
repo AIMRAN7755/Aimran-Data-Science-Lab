@@ -1,0 +1,721 @@
+@page "/plugins"
+@inject IPluginManagerService PluginService
+@inject IModelService ModelService
+
+<PageTitle>Plugin Manager - DS-Workbench</PageTitle>
+
+<div class="page-container">
+    <header class="page-header">
+        <div class="header-content">
+            <h1>🔌 Plugin Manager</h1>
+            <p>Install Python libraries, Rust modules, and manage AI model versions</p>
+        </div>
+    </header>
+
+    <!-- Tab Navigation -->
+    <div class="tab-bar">
+        <button class="tab @(_activeTab == Tab.Python ? "active" : "")" @onclick="() => SwitchTab(Tab.Python)">
+            🐍 Python Libraries
+        </button>
+        <button class="tab @(_activeTab == Tab.Rust ? "active" : "")" @onclick="() => SwitchTab(Tab.Rust)">
+            🦀 Rust Modules
+        </button>
+        <button class="tab @(_activeTab == Tab.Models ? "active" : "")" @onclick="() => SwitchTab(Tab.Models)">
+            🤖 AI Models
+        </button>
+    </div>
+
+    <!-- ═══════════ PYTHON TAB ═══════════ -->
+    @if (_activeTab == Tab.Python)
+    {
+        <div class="tab-content">
+            <!-- Install Bar -->
+            <div class="install-bar">
+                <div class="install-input-group">
+                    <input type="text" @bind="_pipPackageName" @bind:event="oninput"
+                           placeholder="Package name (e.g. torch)" class="install-input" />
+                    <input type="text" @bind="_pipPackageVersion" placeholder="Version (optional)"
+                           class="version-input" />
+                </div>
+                <div class="install-actions">
+                    <button class="btn btn-primary" @onclick="InstallPipPackageAsync" disabled="@(string.IsNullOrWhiteSpace(_pipPackageName) || _isInstalling)">
+                        @if (_isInstalling) { <span class="btn-spinner"></span> }
+                        📦 Install
+                    </button>
+                    <button class="btn btn-secondary" @onclick="CheckPythonUpdatesAsync" disabled="@_isChecking">
+                        🔍 Check Updates
+                    </button>
+                    <button class="btn btn-secondary" @onclick="LoadPythonPackagesAsync">
+                        🔄 Refresh
+                    </button>
+                </div>
+            </div>
+
+            <!-- Quick Install: Latest 2025/2026 Data Science Stack -->
+            <div class="quick-install-panel">
+                <div class="quick-header">
+                    <h4>⚡ Quick Install — Latest Data Science Stack</h4>
+                    <button class="btn btn-sm btn-primary" @onclick="InstallFullStackAsync" disabled="@_isInstalling">
+                        Install All
+                    </button>
+                </div>
+                <div class="quick-grid">
+                    @foreach (var pkg in _recommendedPythonPackages)
+                    {
+                        <div class="quick-chip @(IsInstalled(pkg.Name) ? "installed" : "")">
+                            <span class="chip-name">@pkg.Name</span>
+                            <span class="chip-version">@pkg.Version</span>
+                            @if (IsInstalled(pkg.Name))
+                            {
+                                <span class="chip-status">✅</span>
+                            }
+                            else
+                            {
+                                <button class="chip-btn" @onclick="() => QuickInstallAsync(pkg.Name, pkg.Version)" disabled="@_isInstalling">
+                                    ➕
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Outdated Packages -->
+            @if (_outdatedPythonPackages.Count > 0)
+            {
+                <div class="section-card warning-card">
+                    <div class="section-header">
+                        <h4>⚠️ Outdated Packages (@_outdatedPythonPackages.Count)</h4>
+                        <button class="btn btn-sm btn-primary" @onclick="UpgradeAllOutdatedAsync" disabled="@_isInstalling">
+                            ⬆️ Upgrade All
+                        </button>
+                    </div>
+                    <div class="package-list compact">
+                        @foreach (var pkg in _outdatedPythonPackages)
+                        {
+                            <div class="package-row outdated">
+                                <span class="pkg-name">@pkg.Name</span>
+                                <span class="pkg-version current">@pkg.InstalledVersion</span>
+                                <span class="pkg-arrow">→</span>
+                                <span class="pkg-version latest">@pkg.LatestVersion</span>
+                                <button class="btn-icon-sm" title="Upgrade" @onclick="() => UpgradePipPackageAsync(pkg.Name)" disabled="@_isInstalling">⬆️</button>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+
+            <!-- Installed Packages -->
+            <div class="section-card">
+                <div class="section-header">
+                    <h4>📋 Installed Packages (@_pythonPackages.Count)</h4>
+                    <input type="text" @bind="_pythonFilter" @bind:event="oninput" placeholder="Filter..." class="filter-input" />
+                </div>
+
+                @if (_isLoadingPython)
+                {
+                    <div class="loading-state"><div class="spinner"></div><p>Loading packages...</p></div>
+                }
+                else if (!FilteredPythonPackages.Any())
+                {
+                    <div class="empty-mini"><p>No packages found.</p></div>
+                }
+                else
+                {
+                    <div class="package-list">
+                        @foreach (var pkg in FilteredPythonPackages)
+                        {
+                            <div class="package-row">
+                                <span class="pkg-name">@pkg.Name</span>
+                                <span class="pkg-version">@pkg.InstalledVersion</span>
+                                @if (pkg.Summary is not null)
+                                {
+                                    <span class="pkg-summary">@pkg.Summary</span>
+                                }
+                                <div class="pkg-actions">
+                                    <button class="btn-icon-sm" title="Upgrade" @onclick="() => UpgradePipPackageAsync(pkg.Name)" disabled="@_isInstalling">⬆️</button>
+                                    <button class="btn-icon-sm danger" title="Uninstall" @onclick="() => UninstallPipPackageAsync(pkg.Name)" disabled="@_isInstalling">🗑️</button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    <!-- ═══════════ RUST TAB ═══════════ -->
+    @if (_activeTab == Tab.Rust)
+    {
+        <div class="tab-content">
+            <!-- Install Bar -->
+            <div class="install-bar">
+                <div class="install-input-group">
+                    <input type="text" @bind="_crateNameInput" @bind:event="oninput"
+                           placeholder="Crate name (e.g. reqwest)" class="install-input" />
+                    <input type="text" @bind="_crateVersionInput" placeholder="Version (optional)"
+                           class="version-input" />
+                </div>
+                <div class="install-actions">
+                    <button class="btn btn-primary" @onclick="AddRustCrateAsync" disabled="@(string.IsNullOrWhiteSpace(_crateNameInput) || _isInstalling)">
+                        @if (_isInstalling) { <span class="btn-spinner"></span> }
+                        📦 Add Crate
+                    </button>
+                    <button class="btn btn-secondary" @onclick="LoadRustCratesAsync">
+                        🔄 Refresh
+                    </button>
+                </div>
+            </div>
+
+            <!-- Recommended Rust Crates -->
+            <div class="quick-install-panel">
+                <div class="quick-header">
+                    <h4>⚡ Recommended Crates</h4>
+                </div>
+                <div class="quick-grid">
+                    @foreach (var crate in _recommendedRustCrates)
+                    {
+                        <div class="quick-chip @(IsCrateInstalled(crate.Name) ? "installed" : "")">
+                            <span class="chip-name">@crate.Name</span>
+                            <span class="chip-version">@crate.Version</span>
+                            @if (IsCrateInstalled(crate.Name))
+                            {
+                                <span class="chip-status">✅</span>
+                            }
+                            else
+                            {
+                                <button class="chip-btn" @onclick="() => QuickAddCrateAsync(crate.Name, crate.Version)" disabled="@_isInstalling">
+                                    ➕
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Installed Crates -->
+            <div class="section-card">
+                <div class="section-header">
+                    <h4>📋 Engine Dependencies (@_rustCrates.Count)</h4>
+                    <input type="text" @bind="_rustFilter" @bind:event="oninput" placeholder="Filter..." class="filter-input" />
+                </div>
+
+                @if (_isLoadingRust)
+                {
+                    <div class="loading-state"><div class="spinner"></div><p>Loading crates...</p></div>
+                }
+                else if (!FilteredRustCrates.Any())
+                {
+                    <div class="empty-mini"><p>No crates found.</p></div>
+                }
+                else
+                {
+                    <div class="package-list">
+                        @foreach (var crate in FilteredRustCrates)
+                        {
+                            <div class="package-row">
+                                <span class="pkg-name">@crate.Name</span>
+                                <span class="pkg-version">@crate.InstalledVersion</span>
+                                @if (crate.Features.Count > 0)
+                                {
+                                    <span class="pkg-features">[@string.Join(", ", crate.Features)]</span>
+                                }
+                                <div class="pkg-actions">
+                                    <button class="btn-icon-sm danger" title="Remove" @onclick="() => RemoveRustCrateAsync(crate.Name)" disabled="@_isInstalling">🗑️</button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    <!-- ═══════════ AI MODELS TAB ═══════════ -->
+    @if (_activeTab == Tab.Models)
+    {
+        <div class="tab-content">
+            <!-- Model Version Actions -->
+            <div class="install-bar">
+                <div class="install-actions" style="width:100%;justify-content:flex-end;">
+                    <button class="btn btn-secondary" @onclick="LoadModelVersionsAsync">🔄 Refresh</button>
+                </div>
+            </div>
+
+            @if (_isLoadingModels)
+            {
+                <div class="loading-state"><div class="spinner"></div><p>Loading model versions...</p></div>
+            }
+            else if (!_modelVersions.Any())
+            {
+                <div class="section-card">
+                    <div class="empty-mini">
+                        <p>No models registered. Train an experiment or register a model in Model Lab.</p>
+                        <a href="models" class="btn btn-sm btn-primary">Go to Model Lab</a>
+                    </div>
+                </div>
+            }
+            else
+            {
+                @foreach (var group in _modelVersions.GroupBy(m => m.Name))
+                {
+                    <div class="section-card model-group">
+                        <div class="section-header">
+                            <h4>🤖 @group.Key</h4>
+                            <span class="version-count">@group.Count() version(s)</span>
+                        </div>
+                        <div class="model-version-list">
+                            @foreach (var version in group.OrderByDescending(v => v.Version))
+                            {
+                                <div class="model-version-row">
+                                    <div class="mv-main">
+                                        <span class="mv-badge">v@version.Version</span>
+                                        <span class="mv-algo">@version.Algorithm</span>
+                                        <span class="mv-sep">·</span>
+                                        <span class="mv-framework">@version.Framework</span>
+                                        <span class="mv-sep">·</span>
+                                        <span class="mv-size">@FormatBytes(version.SizeBytes)</span>
+                                    </div>
+                                    <div class="mv-right">
+                                        <span class="status-chip @version.Status.ToString().ToLower()">
+                                            @GetStatusIcon(version.Status) @version.Status
+                                        </span>
+                                        @if (version.Metrics.Count > 0)
+                                        {
+                                            <div class="mv-metrics">
+                                                @foreach (var m in version.Metrics.Take(2))
+                                                {
+                                                    <span class="metric-mini">@m.Key: @m.Value.ToString("F3")</span>
+                                                }
+                                            </div>
+                                        }
+                                        <span class="mv-date">@version.CreatedAt.ToString("MMM dd, yyyy")</span>
+                                        <div class="mv-actions">
+                                            <button class="btn-icon-sm" title="New Version" @onclick="() => ShowNewVersionDialog(version)">📝</button>
+                                            <button class="btn-icon-sm danger" title="Delete" @onclick="() => DeleteModelVersionAsync(version.ModelId)">🗑️</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    }
+
+    <!-- ═══════════ INSTALL LOG ═══════════ -->
+    @if (_installLog.Count > 0)
+    {
+        <section class="log-section">
+            <div class="log-header">
+                <h4>📋 Install Log</h4>
+                <button class="btn-icon-sm" title="Clear" @onclick="ClearLog">🗑️</button>
+            </div>
+            <div class="log-viewer">
+                @foreach (var entry in _installLog)
+                {
+                    <div class="log-entry @entry.Level.ToLower()">
+                        <span class="log-time">@entry.Timestamp.ToString("HH:mm:ss")</span>
+                        <span class="log-level">@entry.Level</span>
+                        <span class="log-msg">@entry.Message</span>
+                    </div>
+                }
+            </div>
+        </section>
+    }
+
+    <!-- New Version Dialog -->
+    @if (_showNewVersionDialog && _versioningModel is not null)
+    {
+        <div class="modal-overlay" @onclick="HideNewVersionDialog">
+            <div class="modal-content" @onclick:stopPropagation="true">
+                <h2>New Version — @_versioningModel.Name</h2>
+                <p>Current: v@_versioningModel.Version</p>
+                <div class="form-group">
+                    <label>New Model File Path</label>
+                    <input type="text" @bind="_newVersionFilePath" placeholder="C:\models\model-v2.pkl" />
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" @onclick="HideNewVersionDialog">Cancel</button>
+                    <button class="btn btn-primary" @onclick="CreateNewVersionAsync"
+                            disabled="@string.IsNullOrWhiteSpace(_newVersionFilePath)">
+                        Create Version
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private Tab _activeTab = Tab.Python;
+
+    // Python state
+    private List<PythonPackage> _pythonPackages = [];
+    private List<PythonPackage> _outdatedPythonPackages = [];
+    private bool _isLoadingPython = true;
+    private string _pipPackageName = "";
+    private string _pipPackageVersion = "";
+    private string _pythonFilter = "";
+
+    // Rust state
+    private List<RustCrate> _rustCrates = [];
+    private bool _isLoadingRust = true;
+    private string _crateNameInput = "";
+    private string _crateVersionInput = "";
+    private string _rustFilter = "";
+
+    // Model state
+    private List<ModelVersionEntry> _modelVersions = [];
+    private bool _isLoadingModels = true;
+
+    // Operations
+    private bool _isInstalling;
+    private bool _isChecking;
+
+    // New version dialog
+    private bool _showNewVersionDialog;
+    private ModelVersionEntry? _versioningModel;
+    private string _newVersionFilePath = "";
+
+    // Log
+    private List<LogEntry> _installLog = [];
+
+    // Filtered views
+    private IEnumerable<PythonPackage> FilteredPythonPackages =>
+        string.IsNullOrWhiteSpace(_pythonFilter)
+            ? _pythonPackages
+            : _pythonPackages.Where(p => p.Name.Contains(_pythonFilter, StringComparison.OrdinalIgnoreCase));
+
+    private IEnumerable<RustCrate> FilteredRustCrates =>
+        string.IsNullOrWhiteSpace(_rustFilter)
+            ? _rustCrates
+            : _rustCrates.Where(c => c.Name.Contains(_rustFilter, StringComparison.OrdinalIgnoreCase));
+
+    // Recommended latest packages (2025/2026 versions)
+    private static readonly List<(string Name, string Version)> _recommendedPythonPackages =
+    [
+        ("fastapi", "0.115.12"),
+        ("uvicorn", "0.34.3"),
+        ("pydantic", "2.11.3"),
+        ("pandas", "2.3.0"),
+        ("numpy", "2.2.6"),
+        ("scikit-learn", "1.7.0"),
+        ("scipy", "1.15.3"),
+        ("torch", "2.7.0"),
+        ("torchvision", "0.22.0"),
+        ("tensorflow", "2.19.0"),
+        ("xgboost", "3.0.2"),
+        ("lightgbm", "4.6.0"),
+        ("transformers", "4.52.3"),
+        ("datasets", "3.6.0"),
+        ("accelerate", "1.7.0"),
+        ("onnxruntime", "1.22.0"),
+        ("matplotlib", "3.10.3"),
+        ("seaborn", "0.13.2"),
+        ("plotly", "6.1.2"),
+        ("pyarrow", "20.0.0"),
+        ("polars", "1.30.0"),
+        ("dask", "2025.4.0"),
+        ("mlflow", "2.22.0"),
+        ("optuna", "4.3.0"),
+        ("shap", "0.47.2"),
+        ("ydata-profiling", "4.12.2"),
+        ("openpyxl", "3.1.5"),
+        ("httpx", "0.28.1"),
+        ("pydantic-settings", "2.9.1"),
+        ("python-multipart", "0.0.20"),
+    ];
+
+    private static readonly List<(string Name, string Version)> _recommendedRustCrates =
+    [
+        ("axum", "0.8"),
+        ("tokio", "1"),
+        ("serde", "1"),
+        ("serde_json", "1"),
+        ("sysinfo", "0.33"),
+        ("reqwest", "0.12"),
+        ("tower-http", "0.6"),
+        ("tracing", "0.1"),
+        ("tracing-subscriber", "0.3"),
+        ("sha2", "0.10"),
+        ("csv", "1.3"),
+        ("rayon", "1.10"),
+        ("anyhow", "1"),
+        ("thiserror", "2"),
+        ("uuid", "1"),
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPythonPackagesAsync();
+    }
+
+    private void SwitchTab(Tab tab)
+    {
+        _activeTab = tab;
+        _ = tab switch
+        {
+            Tab.Python => LoadPythonPackagesAsync(),
+            Tab.Rust => LoadRustCratesAsync(),
+            Tab.Models => LoadModelVersionsAsync(),
+            _ => Task.CompletedTask
+        };
+    }
+
+    // ── Python ──
+
+    private async Task LoadPythonPackagesAsync()
+    {
+        _isLoadingPython = true;
+        _pythonPackages = (await PluginService.ListPythonPackagesAsync()).ToList();
+        _isLoadingPython = false;
+    }
+
+    private async Task CheckPythonUpdatesAsync()
+    {
+        _isChecking = true;
+        AddLog("INFO", "Checking for Python package updates...");
+        _outdatedPythonPackages = (await PluginService.CheckPythonUpdatesAsync()).ToList();
+        AddLog("INFO", $"Found {_outdatedPythonPackages.Count} outdated package(s).");
+        _isChecking = false;
+    }
+
+    private async Task InstallPipPackageAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_pipPackageName)) return;
+        await RunPipInstallAsync(_pipPackageName.Trim(), _pipPackageVersion.Trim(), upgrade: false);
+        _pipPackageName = "";
+        _pipPackageVersion = "";
+    }
+
+    private async Task QuickInstallAsync(string name, string version)
+    {
+        await RunPipInstallAsync(name, version, upgrade: false);
+    }
+
+    private async Task UpgradePipPackageAsync(string name)
+    {
+        await RunPipInstallAsync(name, null, upgrade: true);
+    }
+
+    private async Task InstallFullStackAsync()
+    {
+        _isInstalling = true;
+        AddLog("INFO", "Installing full data science stack...");
+        foreach (var pkg in _recommendedPythonPackages)
+        {
+            if (IsInstalled(pkg.Name)) continue;
+            await RunPipInstallAsync(pkg.Name, pkg.Version, upgrade: false);
+        }
+        AddLog("INFO", "Full stack installation complete.");
+        _isInstalling = false;
+    }
+
+    private async Task UpgradeAllOutdatedAsync()
+    {
+        _isInstalling = true;
+        AddLog("INFO", $"Upgrading {_outdatedPythonPackages.Count} packages...");
+        foreach (var pkg in _outdatedPythonPackages.ToList())
+        {
+            await RunPipInstallAsync(pkg.Name, null, upgrade: true);
+        }
+        _outdatedPythonPackages.Clear();
+        AddLog("INFO", "All upgrades complete.");
+        _isInstalling = false;
+    }
+
+    private async Task RunPipInstallAsync(string name, string? version, bool upgrade)
+    {
+        _isInstalling = true;
+        AddLog("INFO", upgrade ? $"Upgrading {name}..." : $"Installing {name}{(version is not null ? $"=={version}" : "")}...");
+        StateHasChanged();
+
+        var result = await PluginService.InstallPythonPackageAsync(new PackageInstallRequest
+        {
+            PackageName = name,
+            Version = string.IsNullOrWhiteSpace(version) ? null : version,
+            Upgrade = upgrade
+        });
+
+        if (result.Status == PackageOperationStatus.Success)
+        {
+            AddLog("OK", $"{name} installed successfully ({result.Duration.TotalSeconds:F1}s)");
+        }
+        else
+        {
+            AddLog("ERROR", $"Failed: {result.ErrorMessage ?? "Unknown error"}");
+        }
+
+        _isInstalling = false;
+        await LoadPythonPackagesAsync();
+    }
+
+    private async Task UninstallPipPackageAsync(string name)
+    {
+        _isInstalling = true;
+        AddLog("INFO", $"Uninstalling {name}...");
+        var result = await PluginService.UninstallPythonPackageAsync(name);
+
+        if (result.Status == PackageOperationStatus.Success)
+            AddLog("OK", $"{name} removed.");
+        else
+            AddLog("ERROR", $"Failed: {result.ErrorMessage ?? "Unknown error"}");
+
+        _isInstalling = false;
+        await LoadPythonPackagesAsync();
+    }
+
+    private bool IsInstalled(string name) =>
+        _pythonPackages.Any(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+
+    // ── Rust ──
+
+    private async Task LoadRustCratesAsync()
+    {
+        _isLoadingRust = true;
+        _rustCrates = (await PluginService.ListRustCratesAsync()).ToList();
+        _isLoadingRust = false;
+    }
+
+    private async Task AddRustCrateAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_crateNameInput)) return;
+
+        _isInstalling = true;
+        var name = _crateNameInput.Trim();
+        AddLog("INFO", $"Adding crate {name}...");
+
+        var result = await PluginService.AddRustCrateAsync(new PackageInstallRequest
+        {
+            PackageName = name,
+            Version = string.IsNullOrWhiteSpace(_crateVersionInput) ? null : _crateVersionInput.Trim()
+        });
+
+        if (result.Status == PackageOperationStatus.Success)
+            AddLog("OK", $"Crate {name} added ({result.Duration.TotalSeconds:F1}s)");
+        else
+            AddLog("ERROR", $"Failed: {result.ErrorMessage ?? "Unknown error"}");
+
+        _isInstalling = false;
+        _crateNameInput = "";
+        _crateVersionInput = "";
+        await LoadRustCratesAsync();
+    }
+
+    private async Task QuickAddCrateAsync(string name, string version)
+    {
+        _isInstalling = true;
+        AddLog("INFO", $"Adding crate {name}@{version}...");
+
+        var result = await PluginService.AddRustCrateAsync(new PackageInstallRequest
+        {
+            PackageName = name,
+            Version = version
+        });
+
+        if (result.Status == PackageOperationStatus.Success)
+            AddLog("OK", $"Crate {name} added.");
+        else
+            AddLog("ERROR", $"Failed: {result.ErrorMessage ?? "Unknown error"}");
+
+        _isInstalling = false;
+        await LoadRustCratesAsync();
+    }
+
+    private async Task RemoveRustCrateAsync(string name)
+    {
+        _isInstalling = true;
+        AddLog("INFO", $"Removing crate {name}...");
+        var result = await PluginService.RemoveRustCrateAsync(name);
+
+        if (result.Status == PackageOperationStatus.Success)
+            AddLog("OK", $"Crate {name} removed.");
+        else
+            AddLog("ERROR", $"Failed: {result.ErrorMessage ?? "Unknown error"}");
+
+        _isInstalling = false;
+        await LoadRustCratesAsync();
+    }
+
+    private bool IsCrateInstalled(string name) =>
+        _rustCrates.Any(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+
+    // ── Models ──
+
+    private async Task LoadModelVersionsAsync()
+    {
+        _isLoadingModels = true;
+        _modelVersions = (await PluginService.ListModelVersionsAsync()).ToList();
+        _isLoadingModels = false;
+    }
+
+    private void ShowNewVersionDialog(ModelVersionEntry model)
+    {
+        _versioningModel = model;
+        _newVersionFilePath = "";
+        _showNewVersionDialog = true;
+    }
+
+    private void HideNewVersionDialog()
+    {
+        _showNewVersionDialog = false;
+        _versioningModel = null;
+    }
+
+    private async Task CreateNewVersionAsync()
+    {
+        if (_versioningModel is null || string.IsNullOrWhiteSpace(_newVersionFilePath)) return;
+
+        AddLog("INFO", $"Creating new version for {_versioningModel.Name}...");
+        await PluginService.CreateModelVersionAsync(_versioningModel.ModelId, _newVersionFilePath);
+        AddLog("OK", $"Version created.");
+
+        HideNewVersionDialog();
+        await LoadModelVersionsAsync();
+    }
+
+    private async Task DeleteModelVersionAsync(Guid modelId)
+    {
+        await PluginService.DeleteModelVersionAsync(modelId);
+        AddLog("INFO", "Model version deleted.");
+        await LoadModelVersionsAsync();
+    }
+
+    // ── Logging ──
+
+    private void AddLog(string level, string message)
+    {
+        _installLog.Add(new LogEntry(DateTime.Now, level, message));
+        if (_installLog.Count > 200) _installLog.RemoveAt(0);
+        StateHasChanged();
+    }
+
+    private void ClearLog() => _installLog.Clear();
+
+    // ── Helpers ──
+
+    private static string GetStatusIcon(ModelStatus status) => status switch
+    {
+        ModelStatus.Draft => "📝",
+        ModelStatus.Training => "🔄",
+        ModelStatus.Trained => "✅",
+        ModelStatus.Validated => "🔍",
+        ModelStatus.Registered => "📋",
+        ModelStatus.Deployed => "🚀",
+        ModelStatus.Archived => "📦",
+        _ => "❓"
+    };
+
+    private static string FormatBytes(long bytes) => bytes switch
+    {
+        < 1024 => $"{bytes} B",
+        < 1024 * 1024 => $"{bytes / 1024.0:F1} KB",
+        < 1024 * 1024 * 1024 => $"{bytes / (1024.0 * 1024):F1} MB",
+        _ => $"{bytes / (1024.0 * 1024 * 1024):F2} GB"
+    };
+
+    private enum Tab { Python, Rust, Models }
+    private sealed record LogEntry(DateTime Timestamp, string Level, string Message);
+}

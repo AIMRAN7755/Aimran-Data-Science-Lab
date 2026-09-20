@@ -1,0 +1,177 @@
+# ============================================================================
+# AIMRAN Data Science Lab — .gitignore
+# ============================================================================
+# Polyglot repo: .NET 10 (MAUI + Blazor) · Python · Rust · R
+#
+# ANCHORING CONVENTION (important):
+#   "/name/"  = root only        — use for artifact dirs whose name may also
+#                                  be a legitimate source dir deeper in the tree
+#   "name/"   = any depth        — use only when the name is ALWAYS generated
+# Getting this wrong silently excludes source code. See the `models/` note below.
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Secrets — never commit
+# ----------------------------------------------------------------------------
+.env
+.env.local
+.env.*.local
+!.env.example
+*.pfx
+*.snk
+*.p12
+*.pem
+*.key
+secrets.json
+appsettings.*.Local.json
+
+# ----------------------------------------------------------------------------
+# .NET / MAUI / Blazor
+# ----------------------------------------------------------------------------
+bin/
+obj/
+.vs/
+publish/
+[Dd]ebug/
+[Rr]elease/
+TestResults/
+*.user
+*.suo
+*.userprefs
+*.cache
+project.lock.json
+artifacts/
+msbuild.log
+*.binlog
+
+# ----------------------------------------------------------------------------
+# Rust
+# ----------------------------------------------------------------------------
+target/
+**/*.rs.bk
+# Cargo.lock IS committed: this crate builds a shipped binary, so the exact
+# dependency set must be reproducible (see spec P5 — reproducible builds).
+
+# ----------------------------------------------------------------------------
+# Python
+# ----------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+*.egg
+.installed.cfg
+.eggs/
+
+# Virtual environments — this repo has three at root
+env/
+env1/
+env2/
+venv/
+ENV/
+.venv/
+
+# Python build/dist artifacts (root-anchored: `build`/`dist`/`lib` are common
+# source directory names, so matching them at any depth would hide real code)
+/build/
+/develop-eggs/
+/dist/
+/downloads/
+/sdist/
+/wheels/
+/var/
+/parts/
+/lib64/
+
+# ----------------------------------------------------------------------------
+# R
+# ----------------------------------------------------------------------------
+.Rhistory
+.Rapp.history
+.RData
+.Ruserdata
+*.Rproj.user/
+
+# ----------------------------------------------------------------------------
+# Testing / coverage
+# ----------------------------------------------------------------------------
+.pytest_cache/
+.pytest_tmp/
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# ----------------------------------------------------------------------------
+# Notebooks
+# ----------------------------------------------------------------------------
+# NOTE: *.ipynb is deliberately NOT ignored. This is a data science lab —
+# notebooks are primary source artifacts, not build output. Only the
+# auto-generated checkpoint directories are excluded.
+.ipynb_checkpoints/
+
+# ----------------------------------------------------------------------------
+# Data & model artifacts (root-anchored — `src/models/` is SOURCE CODE)
+# ----------------------------------------------------------------------------
+# A bare `models/` pattern here would match src/models/ and silently exclude
+# base_model.py, registry.py, model_store.py and the rest of the model layer.
+/models/
+/data/raw/
+/data/processed/
+/data/interim/
+*.pkl
+*.joblib
+*.h5
+*.onnx
+
+# Databases (the desktop app provisions SQLite under %APPDATA%, but local
+# copies and test fixtures land here)
+*.db
+*.sqlite
+*.sqlite3
+
+# ----------------------------------------------------------------------------
+# MLflow / experiment tracking
+# ----------------------------------------------------------------------------
+mlruns/
+mlflow_data/
+mlflow_artifacts/
+postgres_data/
+
+# ----------------------------------------------------------------------------
+# Logs & generated build transcripts
+# ----------------------------------------------------------------------------
+logs/
+*.log
+all_build_errors.txt
+build-output.txt
+build-maui-publish*.txt
+build-web*.txt
+
+# ----------------------------------------------------------------------------
+# IDE / OS
+# ----------------------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ----------------------------------------------------------------------------
+# Misc
+# ----------------------------------------------------------------------------
+*.tmp
+.cache/
+tempfile.*
+dist_test/
+# Accidental Windows NUL-redirect artifact ("> nul" instead of "> /dev/null")
+nul
+
+# Claude Code: share project config, keep machine-local settings out
+.claude/settings.local.json

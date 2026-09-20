@@ -1,0 +1,696 @@
+@page "/projects/{ProjectId:guid}"
+@implements IDisposable
+@inject IProjectService ProjectService
+@inject IDatasetService DatasetService
+@inject IModelService ModelService
+@inject IExperimentService ExperimentService
+@inject IResourceMonitorService ResourceMonitor
+@inject NavigationManager Navigation
+
+<PageTitle>@(_project?.Name ?? "Workspace") - DS-Workbench</PageTitle>
+
+<div class="page-container">
+    @if (_isLoading)
+    {
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Loading workspace...</p>
+        </div>
+    }
+    else if (_project is null)
+    {
+        <div class="empty-state">
+            <div class="empty-icon">❓</div>
+            <h3>Project not found</h3>
+            <p>The requested project could not be loaded.</p>
+            <a href="projects" class="btn btn-primary">Back to Projects</a>
+        </div>
+    }
+    else
+    {
+        <!-- Project Header -->
+        <header class="workspace-header">
+            <div class="header-left">
+                <a href="projects" class="back-link">← Projects</a>
+                <h1>🛠️ @_project.Name</h1>
+                <p class="subtitle">@(_project.Description ?? "No description")</p>
+            </div>
+            <div class="header-right">
+                <span class="status-badge @_project.Status.ToString().ToLower()">
+                    @GetProjectStatusIcon(_project.Status) @_project.Status
+                </span>
+                @if (_project.AzureConfig is not null)
+                {
+                    <span class="azure-badge">☁️ Azure Connected</span>
+                }
+            </div>
+        </header>
+
+        <!-- Workspace Grid -->
+        <div class="workspace-grid">
+            <!-- Left Column: Configuration -->
+            <div class="workspace-column config-column">
+
+                <!-- Python Environment Selector -->
+                <section class="workspace-panel">
+                    <div class="panel-header">
+                        <h3>🐍 Python Environment</h3>
+                    </div>
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <label>Environment</label>
+                            <select @bind="_config.PythonEnvironment">
+                                <option value="default">System Default (python)</option>
+                                <option value="venv">Project venv</option>
+                                <option value="conda-base">Conda — base</option>
+                                <option value="conda-ml">Conda — ml-env</option>
+                                <option value="conda-torch">Conda — pytorch</option>
+                                <option value="conda-tf">Conda — tensorflow</option>
+                                <option value="custom">Custom Path...</option>
+                            </select>
+                        </div>
+                        @if (_config.PythonEnvironment == "custom")
+                        {
+                            <div class="form-group">
+                                <label>Custom Python Path</label>
+                                <input type="text" @bind="_customPythonPath" placeholder="/usr/bin/python3" />
+                            </div>
+                        }
+                        <div class="env-info">
+                            <span class="info-dot active"></span>
+                            <small>@GetPythonEnvDisplay()</small>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Dataset Selector -->
+                <section class="workspace-panel">
+                    <div class="panel-header">
+                        <h3>📊 Dataset</h3>
+                    </div>
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <label>Select Dataset</label>
+                            <select @bind="_selectedDatasetId">
+                                <option value="">Choose a dataset...</option>
+                                @foreach (var ds in _datasets)
+                                {
+                                    <option value="@ds.Id">@ds.Name (v@ds.Version — @FormatBytes(ds.SizeBytes))</option>
+                                }
+                            </select>
+                        </div>
+                        @if (_selectedDataset is not null)
+                        {
+                            <div class="dataset-preview">
+                                <div class="preview-row">
+                                    <span>Rows</span>
+                                    <strong>@_selectedDataset.RowCount.ToString("N0")</strong>
+                                </div>
+                                <div class="preview-row">
+                                    <span>Columns</span>
+                                    <strong>@_selectedDataset.ColumnCount</strong>
+                                </div>
+                                <div class="preview-row">
+                                    <span>Format</span>
+                                    <strong>@_selectedDataset.Format</strong>
+                                </div>
+                                <div class="preview-row">
+                                    <span>Storage</span>
+                                    <strong>@_selectedDataset.StorageLocation</strong>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </section>
+
+                <!-- Model Type Selector -->
+                <section class="workspace-panel">
+                    <div class="panel-header">
+                        <h3>🤖 Model Type</h3>
+                    </div>
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <label>Algorithm</label>
+                            <select @bind="_config.Algorithm">
+                                <option value="">Select algorithm...</option>
+                                <optgroup label="Classification">
+                                    <option value="LogisticRegression">Logistic Regression</option>
+                                    <option value="RandomForest">Random Forest</option>
+                                    <option value="XGBoost">XGBoost</option>
+                                    <option value="LightGBM">LightGBM</option>
+                                    <option value="SVM">SVM</option>
+                                </optgroup>
+                                <optgroup label="Regression">
+                                    <option value="LinearRegression">Linear Regression</option>
+                                    <option value="RandomForestRegressor">Random Forest Regressor</option>
+                                    <option value="GradientBoosting">Gradient Boosting</option>
+                                </optgroup>
+                                <optgroup label="Deep Learning">
+                                    <option value="NeuralNetwork">Neural Network</option>
+                                    <option value="CNN">CNN</option>
+                                    <option value="RNN">RNN</option>
+                                    <option value="Transformer">Transformer</option>
+                                </optgroup>
+                                <optgroup label="Clustering">
+                                    <option value="KMeans">K-Means</option>
+                                    <option value="DBSCAN">DBSCAN</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Framework</label>
+                            <select @bind="_config.Framework">
+                                <option value="">Select framework...</option>
+                                <option value="scikit-learn">scikit-learn</option>
+                                <option value="PyTorch">PyTorch</option>
+                                <option value="TensorFlow">TensorFlow</option>
+                                <option value="ML.NET">ML.NET</option>
+                                <option value="ONNX">ONNX</option>
+                            </select>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Center Column: Training Config + Logs -->
+            <div class="workspace-column main-column">
+
+                <!-- Training Configuration Panel -->
+                <section class="workspace-panel">
+                    <div class="panel-header">
+                        <h3>⚙️ Training Configuration</h3>
+                    </div>
+                    <div class="panel-body">
+                        <div class="config-grid">
+                            <div class="form-group">
+                                <label>Compute Target</label>
+                                <select @bind="_config.ComputeTarget">
+                                    <option value="@ComputeTarget.Local">💻 Local</option>
+                                    <option value="@ComputeTarget.AzureMl">☁️ Azure ML</option>
+                                    <option value="@ComputeTarget.AzureGpu">🎮 Azure GPU</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Epochs</label>
+                                <input type="number" @bind="_config.Epochs" min="1" max="10000" />
+                            </div>
+                            <div class="form-group">
+                                <label>Batch Size</label>
+                                <input type="number" @bind="_config.BatchSize" min="1" max="4096" />
+                            </div>
+                            <div class="form-group">
+                                <label>Learning Rate</label>
+                                <input type="number" @bind="_config.LearningRate" step="0.0001" min="0.00001" max="1" />
+                            </div>
+                            <div class="form-group">
+                                <label>Validation Split</label>
+                                <input type="number" @bind="_config.ValidationSplit" step="0.05" min="0" max="0.5" />
+                            </div>
+                            <div class="form-group">
+                                <label>Random Seed</label>
+                                <input type="number" @bind="_config.RandomSeed" />
+                            </div>
+                        </div>
+
+                        <div class="training-actions">
+                            <button class="btn btn-primary btn-lg" @onclick="StartTraining" disabled="@(!CanStartTraining)">
+                                🚀 Start Training
+                            </button>
+                            @if (_isTraining)
+                            {
+                                <button class="btn btn-danger" @onclick="StopTraining">
+                                    ⏹️ Stop
+                                </button>
+                            }
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(_validationMessage))
+                        {
+                            <div class="validation-message @(_validationIsError ? "error" : "info")">
+                                @_validationMessage
+                            </div>
+                        }
+                    </div>
+                </section>
+
+                <!-- Live Logs Viewer -->
+                <section class="workspace-panel logs-panel">
+                    <div class="panel-header">
+                        <h3>📋 Live Logs</h3>
+                        <div class="panel-actions">
+                            @if (_logEntries.Count > 0)
+                            {
+                                <button class="btn-icon-sm" title="Clear Logs" @onclick="ClearLogs">🗑️</button>
+                            }
+                            <button class="btn-icon-sm @(_autoScroll ? "active" : "")" title="Auto-scroll" @onclick="ToggleAutoScroll">
+                                ⬇️
+                            </button>
+                        </div>
+                    </div>
+                    <div class="panel-body logs-body">
+                        <div class="log-viewer">
+                            @if (!_logEntries.Any())
+                            {
+                                <div class="log-empty">
+                                    <span>No logs yet. Start training to see output.</span>
+                                </div>
+                            }
+                            else
+                            {
+                                @foreach (var entry in _logEntries)
+                                {
+                                    <div class="log-entry @entry.Level.ToLower()">
+                                        <span class="log-time">@entry.Timestamp.ToString("HH:mm:ss.fff")</span>
+                                        <span class="log-level">@entry.Level</span>
+                                        <span class="log-message">@entry.Message</span>
+                                    </div>
+                                }
+                            }
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Right Column: Resource Monitor -->
+            <div class="workspace-column monitor-column">
+
+                <!-- GPU / CPU Monitoring Panel -->
+                <section class="workspace-panel">
+                    <div class="panel-header">
+                        <h3>💻 Resources</h3>
+                        <button class="btn-icon-sm @(_isMonitoring ? "active" : "")"
+                                title="@(_isMonitoring ? "Stop monitoring" : "Start monitoring")"
+                                @onclick="ToggleMonitoring">
+                            @(_isMonitoring ? "⏹️" : "▶️")
+                        </button>
+                    </div>
+                    <div class="panel-body">
+                        <!-- CPU -->
+                        <div class="resource-item">
+                            <div class="resource-label">
+                                <span>🖥️ CPU</span>
+                                <span>@_metrics.Cpu.UsagePercent.ToString("F0")%</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill cpu" style="width: @(_metrics.Cpu.UsagePercent)%"></div>
+                            </div>
+                            <div class="resource-sub">
+                                <small>@_metrics.Cpu.CoreCount cores · @(_metrics.Cpu.FrequencyMhz > 0 ? $"{_metrics.Cpu.FrequencyMhz:F0} MHz" : "N/A")</small>
+                            </div>
+                        </div>
+
+                        <!-- Memory -->
+                        <div class="resource-item">
+                            <div class="resource-label">
+                                <span>🧠 Memory</span>
+                                <span>@_metrics.Memory.UsagePercent.ToString("F0")%</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill memory" style="width: @(_metrics.Memory.UsagePercent)%"></div>
+                            </div>
+                            <div class="resource-sub">
+                                <small>@FormatBytes(_metrics.Memory.UsedBytes) / @FormatBytes(_metrics.Memory.TotalBytes)</small>
+                            </div>
+                        </div>
+
+                        <!-- Disk -->
+                        <div class="resource-item">
+                            <div class="resource-label">
+                                <span>💾 Disk</span>
+                                <span>@_metrics.Disk.UsagePercent.ToString("F0")%</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill disk" style="width: @(_metrics.Disk.UsagePercent)%"></div>
+                            </div>
+                            <div class="resource-sub">
+                                <small>@FormatBytes(_metrics.Disk.FreeBytes) free</small>
+                            </div>
+                        </div>
+
+                        <!-- GPU -->
+                        <div class="resource-item">
+                            <div class="resource-label">
+                                <span>🎮 GPU</span>
+                                @if (_metrics.Gpu is not null)
+                                {
+                                    <span>@_metrics.Gpu.UsagePercent.ToString("F0")%</span>
+                                }
+                                else
+                                {
+                                    <span class="unavailable">N/A</span>
+                                }
+                            </div>
+                            @if (_metrics.Gpu is not null)
+                            {
+                                <div class="progress-bar">
+                                    <div class="progress-fill gpu" style="width: @(_metrics.Gpu.UsagePercent)%"></div>
+                                </div>
+                                <div class="resource-sub">
+                                    <small>@_metrics.Gpu.Name</small>
+                                </div>
+                                <div class="resource-sub">
+                                    <small>VRAM @FormatBytes(_metrics.Gpu.MemoryUsedBytes) / @FormatBytes(_metrics.Gpu.MemoryTotalBytes) · @_metrics.Gpu.TemperatureCelsius.ToString("F0")°C</small>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="progress-bar">
+                                    <div class="progress-fill gpu" style="width: 0%"></div>
+                                </div>
+                                <div class="resource-sub">
+                                    <small>No GPU detected</small>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Project Summary -->
+                <section class="workspace-panel">
+                    <div class="panel-header">
+                        <h3>📁 Project Summary</h3>
+                    </div>
+                    <div class="panel-body">
+                        <div class="summary-grid">
+                            <div class="summary-item">
+                                <span class="summary-value">@_project.DatasetIds.Count</span>
+                                <span class="summary-label">Datasets</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-value">@_project.ExperimentIds.Count</span>
+                                <span class="summary-label">Experiments</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-value">@_project.ModelIds.Count</span>
+                                <span class="summary-label">Models</span>
+                            </div>
+                        </div>
+                        <div class="summary-meta">
+                            <div class="meta-row">
+                                <span>Path</span>
+                                <code>@_project.LocalPath</code>
+                            </div>
+                            <div class="meta-row">
+                                <span>Created</span>
+                                <span>@_project.CreatedAt.ToString("MMM dd, yyyy")</span>
+                            </div>
+                            @if (_project.Tags.Count > 0)
+                            {
+                                <div class="meta-row tags-row">
+                                    <span>Tags</span>
+                                    <div class="tag-list">
+                                        @foreach (var tag in _project.Tags)
+                                        {
+                                            <span class="tag">@tag</span>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid ProjectId { get; set; }
+
+    private Project? _project;
+    private List<Dataset> _datasets = [];
+    private bool _isLoading = true;
+
+    // Python environment
+    private string _customPythonPath = "";
+
+    // Dataset selection
+    private string _selectedDatasetId = "";
+    private Dataset? _selectedDataset => !string.IsNullOrEmpty(_selectedDatasetId) && Guid.TryParse(_selectedDatasetId, out var id)
+        ? _datasets.FirstOrDefault(d => d.Id == id)
+        : null;
+
+    // Training config (mutable copy for binding)
+    private TrainingConfigState _config = new();
+
+    // Training state
+    private bool _isTraining;
+    private string _validationMessage = "";
+    private bool _validationIsError;
+
+    // Logs
+    private List<LogEntry> _logEntries = [];
+    private bool _autoScroll = true;
+
+    // Resource monitoring
+    private ResourceMetrics _metrics = new();
+    private bool _isMonitoring;
+    private CancellationTokenSource? _monitorCts;
+
+    // Experiment streaming
+    private CancellationTokenSource? _trainingCts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadWorkspaceDataAsync();
+    }
+
+    private async Task LoadWorkspaceDataAsync()
+    {
+        _isLoading = true;
+
+        var projectTask = ProjectService.GetByIdAsync(ProjectId);
+        var datasetsTask = DatasetService.GetAllAsync();
+        var metricsTask = ResourceMonitor.GetCurrentMetricsAsync();
+
+        await Task.WhenAll(projectTask, datasetsTask, metricsTask);
+
+        _project = await projectTask;
+        _datasets = (await datasetsTask).ToList();
+        _metrics = await metricsTask;
+
+        _isLoading = false;
+
+        // Auto-start resource monitoring
+        _ = StartMonitoringAsync();
+    }
+
+    private bool CanStartTraining =>
+        !_isTraining &&
+        _project is not null &&
+        !string.IsNullOrEmpty(_selectedDatasetId) &&
+        !string.IsNullOrEmpty(_config.Algorithm) &&
+        !string.IsNullOrEmpty(_config.Framework);
+
+    private async Task StartTraining()
+    {
+        if (!CanStartTraining || _project is null)
+            return;
+
+        if (!Guid.TryParse(_selectedDatasetId, out var datasetId))
+        {
+            _validationMessage = "Please select a valid dataset.";
+            _validationIsError = true;
+            return;
+        }
+
+        _validationMessage = "";
+        _validationIsError = false;
+        _isTraining = true;
+        _trainingCts = new CancellationTokenSource();
+
+        AddLog("INFO", $"Starting training: {_config.Algorithm} with {_config.Framework}");
+        AddLog("INFO", $"Dataset: {_selectedDataset?.Name ?? "unknown"} | Epochs: {_config.Epochs} | Batch: {_config.BatchSize} | LR: {_config.LearningRate}");
+        AddLog("INFO", $"Compute: {_config.ComputeTarget} | Python: {GetPythonEnvDisplay()}");
+
+        try
+        {
+            var experiment = await ExperimentService.CreateAsync(
+                $"{_project.Name} — {_config.Algorithm}",
+                _project.Id,
+                datasetId,
+                $"Auto-created from workspace. Framework: {_config.Framework}");
+
+            AddLog("INFO", $"Experiment created: {experiment.Name} (ID: {experiment.Id})");
+
+            var hyperparameters = new Dictionary<string, object>
+            {
+                ["epochs"] = _config.Epochs,
+                ["batch_size"] = _config.BatchSize,
+                ["learning_rate"] = _config.LearningRate,
+                ["validation_split"] = _config.ValidationSplit,
+                ["algorithm"] = _config.Algorithm,
+                ["framework"] = _config.Framework,
+                ["python_env"] = _config.PythonEnvironment
+            };
+
+            if (_config.RandomSeed.HasValue)
+                hyperparameters["random_seed"] = _config.RandomSeed.Value;
+
+            var started = await ExperimentService.StartAsync(
+                experiment.Id,
+                hyperparameters,
+                _config.ComputeTarget,
+                _trainingCts.Token);
+
+            AddLog("INFO", $"Experiment started (Status: {started.Status})");
+
+            // Stream run logs
+            await foreach (var run in ExperimentService.StreamRunsAsync(experiment.Id, _trainingCts.Token))
+            {
+                AddLog("INFO", $"Run #{run.RunNumber} — {run.Status}");
+
+                if (!string.IsNullOrEmpty(run.LogOutput))
+                    AddLog("LOG", run.LogOutput);
+
+                if (run.Metrics.Count > 0)
+                {
+                    foreach (var m in run.Metrics)
+                        AddLog("METRIC", $"{m.Key} = {m.Value:F4}");
+                }
+
+                if (!string.IsNullOrEmpty(run.ErrorMessage))
+                    AddLog("ERROR", run.ErrorMessage);
+
+                await InvokeAsync(StateHasChanged);
+
+                if (run.Status is ExperimentStatus.Completed or ExperimentStatus.Failed or ExperimentStatus.Cancelled)
+                    break;
+            }
+
+            AddLog("INFO", "Training completed.");
+        }
+        catch (OperationCanceledException)
+        {
+            AddLog("WARN", "Training cancelled by user.");
+        }
+        catch (Exception ex)
+        {
+            AddLog("ERROR", $"Training failed: {ex.Message}");
+            _validationMessage = $"Training error: {ex.Message}";
+            _validationIsError = true;
+        }
+        finally
+        {
+            _isTraining = false;
+            _trainingCts?.Dispose();
+            _trainingCts = null;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void StopTraining()
+    {
+        _trainingCts?.Cancel();
+        AddLog("WARN", "Stopping training...");
+    }
+
+    // Logging helpers
+    private void AddLog(string level, string message)
+    {
+        _logEntries.Add(new LogEntry(DateTime.Now, level, message));
+
+        // Keep log buffer bounded
+        if (_logEntries.Count > 500)
+            _logEntries.RemoveAt(0);
+    }
+
+    private void ClearLogs() => _logEntries.Clear();
+    private void ToggleAutoScroll() => _autoScroll = !_autoScroll;
+
+    // Resource monitoring
+    private async Task ToggleMonitoring()
+    {
+        if (_isMonitoring)
+        {
+            StopMonitoringInternal();
+        }
+        else
+        {
+            await StartMonitoringAsync();
+        }
+    }
+
+    private async Task StartMonitoringAsync()
+    {
+        if (_isMonitoring) return;
+
+        _isMonitoring = true;
+        _monitorCts = new CancellationTokenSource();
+
+        try
+        {
+            await foreach (var metrics in ResourceMonitor.StreamMetricsAsync(TimeSpan.FromSeconds(2), _monitorCts.Token))
+            {
+                _metrics = metrics;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected on stop
+        }
+    }
+
+    private void StopMonitoringInternal()
+    {
+        _isMonitoring = false;
+        _monitorCts?.Cancel();
+        _monitorCts?.Dispose();
+        _monitorCts = null;
+    }
+
+    public void Dispose()
+    {
+        StopMonitoringInternal();
+        _trainingCts?.Cancel();
+        _trainingCts?.Dispose();
+    }
+
+    // Helpers
+    private string GetPythonEnvDisplay() => _config.PythonEnvironment switch
+    {
+        "default" => "System Python",
+        "venv" => "Project Virtual Environment",
+        "conda-base" => "Conda — base",
+        "conda-ml" => "Conda — ml-env",
+        "conda-torch" => "Conda — pytorch",
+        "conda-tf" => "Conda — tensorflow",
+        "custom" => string.IsNullOrEmpty(_customPythonPath) ? "Custom (not set)" : _customPythonPath,
+        _ => _config.PythonEnvironment
+    };
+
+    private static string GetProjectStatusIcon(ProjectStatus status) => status switch
+    {
+        ProjectStatus.Active => "🟢",
+        ProjectStatus.Archived => "📦",
+        ProjectStatus.Completed => "✅",
+        _ => "❓"
+    };
+
+    private static string FormatBytes(long bytes) => bytes switch
+    {
+        < 1024 => $"{bytes} B",
+        < 1024 * 1024 => $"{bytes / 1024.0:F1} KB",
+        < 1024 * 1024 * 1024 => $"{bytes / (1024.0 * 1024):F1} MB",
+        _ => $"{bytes / (1024.0 * 1024 * 1024):F2} GB"
+    };
+
+    /// <summary>
+    /// Mutable state class for two-way binding in Blazor forms.
+    /// </summary>
+    private sealed class TrainingConfigState
+    {
+        public string PythonEnvironment { get; set; } = "default";
+        public string Algorithm { get; set; } = "";
+        public string Framework { get; set; } = "";
+        public ComputeTarget ComputeTarget { get; set; } = ComputeTarget.Local;
+        public int Epochs { get; set; } = 10;
+        public int BatchSize { get; set; } = 32;
+        public double LearningRate { get; set; } = 0.001;
+        public double ValidationSplit { get; set; } = 0.2;
+        public int? RandomSeed { get; set; } = 42;
+    }
+
+    private sealed record LogEntry(DateTime Timestamp, string Level, string Message);
+}

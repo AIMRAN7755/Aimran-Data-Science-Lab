@@ -1,0 +1,68 @@
+@if (isLoading)
+{
+    <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+}
+else if (hasPermission)
+{
+    @ChildContent
+}
+else
+{
+    @if (NoPermissionContent != null)
+    {
+        @NoPermissionContent
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Error" Icon="@Icons.Material.Filled.Security">
+            You don't have permission to access this feature.
+        </MudAlert>
+    }
+}
+
+@code {
+    [Parameter]
+    public string? RequiredPermission { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public RenderFragment? NoPermissionContent { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private bool hasPermission = false;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CheckPermission();
+    }
+
+    private async Task CheckPermission()
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(RequiredPermission) || AuthenticationStateTask == null)
+            {
+                hasPermission = true;
+                return;
+            }
+
+            var authState = await AuthenticationStateTask;
+            var user = authState.User;
+
+            if (user?.Identity?.IsAuthenticated == true)
+            {
+                var permissionClaim = user.FindFirst("permission_" + RequiredPermission);
+                hasPermission = permissionClaim != null;
+            }
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

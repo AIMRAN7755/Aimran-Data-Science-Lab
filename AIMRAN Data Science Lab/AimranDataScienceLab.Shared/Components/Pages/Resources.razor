@@ -1,0 +1,270 @@
+@page "/resources"
+@implements IDisposable
+@inject IResourceMonitorService ResourceMonitor
+
+<PageTitle>Resource Monitor - DS-Workbench</PageTitle>
+
+<div class="page-container">
+    <header class="page-header">
+        <div class="header-content">
+            <h1>📊 Resource Monitor</h1>
+            <p>Real-time system resource monitoring</p>
+        </div>
+        <div class="header-actions">
+            <button class="btn @(_isMonitoring ? "btn-danger" : "btn-primary")" @onclick="ToggleMonitoring">
+                @(_isMonitoring ? "⏹️ Stop" : "▶️ Start") Monitoring
+            </button>
+        </div>
+    </header>
+
+    <!-- Resource Cards -->
+    <div class="resource-grid">
+        <!-- CPU -->
+        <div class="resource-card">
+            <div class="resource-header">
+                <span class="resource-icon">🖥️</span>
+                <h3>CPU</h3>
+            </div>
+            <div class="resource-gauge">
+                <div class="gauge-circle">
+                    <svg viewBox="0 0 100 100">
+                        <circle class="gauge-bg" cx="50" cy="50" r="45" />
+                        <circle class="gauge-fill cpu"
+                                cx="50" cy="50" r="45"
+                                stroke-dasharray="@(283 * _metrics.Cpu.UsagePercent / 100) 283" />
+                    </svg>
+                    <div class="gauge-value">@_metrics.Cpu.UsagePercent.ToString("F0")%</div>
+                </div>
+            </div>
+            <div class="resource-details">
+                <div class="detail-row">
+                    <span>Cores</span>
+                    <span>@_metrics.Cpu.CoreCount</span>
+                </div>
+                <div class="detail-row">
+                    <span>Frequency</span>
+                    <span>@(_metrics.Cpu.FrequencyMhz > 0 ? $"{_metrics.Cpu.FrequencyMhz:F0} MHz" : "N/A")</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Memory -->
+        <div class="resource-card">
+            <div class="resource-header">
+                <span class="resource-icon">🧠</span>
+                <h3>Memory</h3>
+            </div>
+            <div class="resource-gauge">
+                <div class="gauge-circle">
+                    <svg viewBox="0 0 100 100">
+                        <circle class="gauge-bg" cx="50" cy="50" r="45" />
+                        <circle class="gauge-fill memory"
+                                cx="50" cy="50" r="45"
+                                stroke-dasharray="@(283 * _metrics.Memory.UsagePercent / 100) 283" />
+                    </svg>
+                    <div class="gauge-value">@_metrics.Memory.UsagePercent.ToString("F0")%</div>
+                </div>
+            </div>
+            <div class="resource-details">
+                <div class="detail-row">
+                    <span>Used</span>
+                    <span>@FormatBytes(_metrics.Memory.UsedBytes)</span>
+                </div>
+                <div class="detail-row">
+                    <span>Available</span>
+                    <span>@FormatBytes(_metrics.Memory.AvailableBytes)</span>
+                </div>
+                <div class="detail-row">
+                    <span>Total</span>
+                    <span>@FormatBytes(_metrics.Memory.TotalBytes)</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Disk -->
+        <div class="resource-card">
+            <div class="resource-header">
+                <span class="resource-icon">💾</span>
+                <h3>Disk</h3>
+            </div>
+            <div class="resource-gauge">
+                <div class="gauge-circle">
+                    <svg viewBox="0 0 100 100">
+                        <circle class="gauge-bg" cx="50" cy="50" r="45" />
+                        <circle class="gauge-fill disk"
+                                cx="50" cy="50" r="45"
+                                stroke-dasharray="@(283 * _metrics.Disk.UsagePercent / 100) 283" />
+                    </svg>
+                    <div class="gauge-value">@_metrics.Disk.UsagePercent.ToString("F0")%</div>
+                </div>
+            </div>
+            <div class="resource-details">
+                <div class="detail-row">
+                    <span>Used</span>
+                    <span>@FormatBytes(_metrics.Disk.UsedBytes)</span>
+                </div>
+                <div class="detail-row">
+                    <span>Free</span>
+                    <span>@FormatBytes(_metrics.Disk.FreeBytes)</span>
+                </div>
+                <div class="detail-row">
+                    <span>Total</span>
+                    <span>@FormatBytes(_metrics.Disk.TotalBytes)</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- GPU -->
+        <div class="resource-card @(_metrics.Gpu is null ? "disabled" : "")">
+            <div class="resource-header">
+                <span class="resource-icon">🎮</span>
+                <h3>GPU</h3>
+            </div>
+            @if (_metrics.Gpu is not null)
+            {
+                <div class="resource-gauge">
+                    <div class="gauge-circle">
+                        <svg viewBox="0 0 100 100">
+                            <circle class="gauge-bg" cx="50" cy="50" r="45" />
+                            <circle class="gauge-fill gpu"
+                                    cx="50" cy="50" r="45"
+                                    stroke-dasharray="@(283 * _metrics.Gpu.UsagePercent / 100) 283" />
+                        </svg>
+                        <div class="gauge-value">@_metrics.Gpu.UsagePercent.ToString("F0")%</div>
+                    </div>
+                </div>
+                <div class="resource-details">
+                    <div class="detail-row">
+                        <span>Name</span>
+                        <span>@_metrics.Gpu.Name</span>
+                    </div>
+                    <div class="detail-row">
+                        <span>Memory</span>
+                        <span>@FormatBytes(_metrics.Gpu.MemoryUsedBytes) / @FormatBytes(_metrics.Gpu.MemoryTotalBytes)</span>
+                    </div>
+                    <div class="detail-row">
+                        <span>Temperature</span>
+                        <span>@_metrics.Gpu.TemperatureCelsius.ToString("F0")°C</span>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="gpu-unavailable">
+                    <span class="unavailable-icon">❌</span>
+                    <p>No GPU detected</p>
+                    <small>GPU acceleration unavailable</small>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Cloud Boost Suggestion -->
+    @if (_metrics.Gpu is null || _metrics.Cpu.UsagePercent > 80)
+    {
+        <div class="cloud-suggestion">
+            <div class="suggestion-content">
+                <span class="suggestion-icon">☁️</span>
+                <div>
+                    <h4>Need more power?</h4>
+                    <p>Use Azure Cloud Boost for GPU acceleration and distributed computing.</p>
+                </div>
+            </div>
+            <a href="azure" class="btn btn-cloud">Enable Cloud Boost</a>
+        </div>
+    }
+
+    <!-- Resource History -->
+    <section class="history-section">
+        <h2>📈 Recent History</h2>
+        <div class="history-chart">
+            @if (_history.Any())
+            {
+                <div class="mini-chart">
+                    @foreach (var item in _history.TakeLast(20))
+                    {
+                        <div class="chart-bar" style="height: @(item.Cpu.UsagePercent)%"
+                             title="CPU: @item.Cpu.UsagePercent.ToString("F1")% at @item.Timestamp.ToString("HH:mm:ss")">
+                        </div>
+                    }
+                </div>
+                <p class="chart-label">CPU Usage (last 20 samples)</p>
+            }
+            else
+            {
+                <p class="no-history">Start monitoring to see resource history.</p>
+            }
+        </div>
+    </section>
+</div>
+
+@code {
+    private ResourceMetrics _metrics = new();
+    private List<ResourceMetrics> _history = [];
+    private bool _isMonitoring;
+    private CancellationTokenSource? _cts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _metrics = await ResourceMonitor.GetCurrentMetricsAsync();
+        _ = StartMonitoring();
+    }
+
+    private async Task ToggleMonitoring()
+    {
+        if (_isMonitoring)
+        {
+            StopMonitoring();
+        }
+        else
+        {
+            await StartMonitoring();
+        }
+    }
+
+    private async Task StartMonitoring()
+    {
+        _isMonitoring = true;
+        _cts = new CancellationTokenSource();
+
+        try
+        {
+            await foreach (var metrics in ResourceMonitor.StreamMetricsAsync(TimeSpan.FromSeconds(2), _cts.Token))
+            {
+                _metrics = metrics;
+                _history.Add(metrics);
+
+                // Keep only last 100 samples
+                if (_history.Count > 100)
+                    _history.RemoveAt(0);
+
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected when stopping
+        }
+    }
+
+    private void StopMonitoring()
+    {
+        _isMonitoring = false;
+        _cts?.Cancel();
+        _cts?.Dispose();
+        _cts = null;
+    }
+
+    public void Dispose()
+    {
+        StopMonitoring();
+    }
+
+    private static string FormatBytes(long bytes) => bytes switch
+    {
+        < 1024 => $"{bytes} B",
+        < 1024 * 1024 => $"{bytes / 1024.0:F1} KB",
+        < 1024 * 1024 * 1024 => $"{bytes / (1024.0 * 1024):F1} MB",
+        _ => $"{bytes / (1024.0 * 1024 * 1024):F2} GB"
+    };
+}

@@ -1,0 +1,113 @@
+@page "/settings"
+@inject ISettingsService SettingsService
+
+<PageTitle>Settings - AIMRAN Data Science Lab</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="py-8">
+    <MudStack Spacing="4">
+        <!-- Header -->
+        <MudStack>
+            <MudText Typo="Typo.h4" Class="font-weight-bold">Settings</MudText>
+            <MudText Typo="Typo.body1" Style="color: var(--mud-palette-text-secondary);">Manage your account, preferences, and application settings</MudText>
+        </MudStack>
+
+        <!-- Settings Layout: Sidebar + Content -->
+        <MudGrid>
+            <!-- Sidebar with Categories -->
+            <MudItem xs="12" sm="3">
+                <MudPaper Elevation="0" Class="pa-4" Style="background-color: var(--mud-palette-surface);">
+                    <MudStack Spacing="2">
+                        @foreach (var category in categories)
+                        {
+                            <MudButton 
+                                Variant="@(selectedCategory == category.Id ? Variant.Filled : Variant.Text)"
+                                Color="@(selectedCategory == category.Id ? MudBlazor.Color.Primary : MudBlazor.Color.Default)"
+                                FullWidth="true"
+                                Class="justify-start"
+                                OnClick="@(() => SelectCategory(category.Id))">
+                                <MudIcon Icon="@GetCategoryIcon(category.Id)" Class="mr-3" />
+                                <MudText Typo="Typo.body1">@category.Name</MudText>
+                            </MudButton>
+                        }
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+
+            <!-- Content Area -->
+            <MudItem xs="12" sm="9">
+                <MudPaper Elevation="1" Class="pa-6">
+                    @if (loading)
+                    {
+                        <MudProgressCircular Indeterminate="true" Size="Size.Large" />
+                    }
+                    else
+                    {
+                        @switch (selectedCategory)
+                        {
+                            case "profile":
+                                <SettingsProfile />
+                                break;
+                            case "preferences":
+                                <SettingsPreferences />
+                                break;
+                            case "tools":
+                                <SettingsDataScienceTools />
+                                break;
+                            case "api":
+                                <SettingsAPIKeys />
+                                break;
+                            case "theme":
+                                <SettingsAppearance />
+                                break;
+                            case "notifications":
+                                <SettingsNotifications />
+                                break;
+                            case "privacy":
+                                <SettingsPrivacy />
+                                break;
+                            default:
+                                <SettingsProfile />
+                                break;
+                        }
+                    }
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    </MudStack>
+</MudContainer>
+
+@code {
+    private List<SettingsCategory> categories = new();
+    private string selectedCategory = "profile";
+    private bool loading = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        loading = true;
+        try
+        {
+            categories = (await SettingsService.GetCategoriesAsync()).OrderBy(c => c.Order).ToList();
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void SelectCategory(string categoryId)
+    {
+        selectedCategory = categoryId;
+    }
+
+    private string GetCategoryIcon(string categoryId) => categoryId switch
+    {
+        "profile" => Icons.Material.Filled.Person,
+        "preferences" => Icons.Material.Filled.Tune,
+        "tools" => Icons.Material.Filled.Settings,
+        "api" => Icons.Material.Filled.VpnKey,
+        "theme" => Icons.Material.Filled.Palette,
+        "notifications" => Icons.Material.Filled.Notifications,
+        "privacy" => Icons.Material.Filled.Lock,
+        _ => Icons.Material.Filled.Settings
+    };
+}

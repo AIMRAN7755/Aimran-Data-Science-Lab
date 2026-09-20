@@ -1,0 +1,125 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+    <PropertyGroup>
+        <!-- Windows-only desktop deployment for .NET 10 (Windows 11) -->
+        <TargetFramework>net10.0-windows10.0.19041</TargetFramework>
+
+        <!-- Note: For cross-platform builds, uncomment additional targets:
+        <TargetFrameworks>net10.0-windows10.0.19041;net10.0-android;net10.0-ios;net10.0-maccatalyst</TargetFrameworks>
+        -->
+
+        <OutputType>Exe</OutputType>
+        <RootNamespace>AIMRAN_Data_Science_Lab</RootNamespace>
+        <UseMaui>true</UseMaui>
+        <SingleProject>true</SingleProject>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <EnableDefaultCssItems>false</EnableDefaultCssItems>
+        <Nullable>enable</Nullable>
+
+        <!-- Enable XAML source generation for faster build times and improved performance.
+             This generates C# code from XAML at compile time instead of runtime inflation.
+             To disable, remove this line.
+             For individual files, you can override by setting Inflator metadata:
+               <MauiXaml Update="MyPage.xaml" Inflator="Default" /> (reverts to defaults: Runtime for Debug, XamlC for Release)
+               <MauiXaml Update="MyPage.xaml" Inflator="Runtime" /> (force runtime inflation) -->
+        <MauiXamlInflator>SourceGen</MauiXamlInflator>
+
+        <!-- Prevent duplicate assembly attributes when building for multiple TFMs -->
+        <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+
+        <!-- Display name -->
+        <ApplicationTitle>AIMRAN Data Science Lab</ApplicationTitle>
+
+        <!-- App Identifier -->
+        <ApplicationId>com.companyname.aimrandatasciencelab</ApplicationId>
+
+        <!-- Versions -->
+        <ApplicationDisplayVersion>2.0</ApplicationDisplayVersion>
+        <ApplicationVersion>2</ApplicationVersion>
+
+        <!-- To develop, package, and publish an app to the Microsoft Store, see: https://aka.ms/MauiTemplateUnpackaged -->
+        <WindowsPackageType>None</WindowsPackageType>
+
+        <!-- ── Windows Desktop-Specific Configuration ── -->
+        <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+
+        <!-- Self-contained deployment for Windows (no .NET runtime install needed) -->
+        <SelfContained Condition="'$(Configuration)' == 'Release'">true</SelfContained>
+        <PublishReadyToRun Condition="'$(Configuration)' == 'Release'">true</PublishReadyToRun>
+        <PublishTrimmed Condition="'$(Configuration)' == 'Release'">false</PublishTrimmed>
+        <PublishSingleFile Condition="'$(Configuration)' == 'Release'">true</PublishSingleFile>
+
+        <!-- App manifest for Windows -->
+        <ApplicationManifest>Platforms\Windows\app.manifest</ApplicationManifest>
+
+        <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+        <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+
+        <!-- Workaround for dotnet watch DOTNET_HOST_PATH issue -->
+        <CompressionEnabled>false</CompressionEnabled>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!-- App Icon -->
+        <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
+
+        <!-- Splash Screen -->
+        <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#512BD4" BaseSize="128,128" />
+
+        <!-- Images -->
+        <MauiImage Include="Resources\Images\*" />
+        <MauiImage Update="Resources\Images\dotnet_bot.svg" BaseSize="168,208" />
+
+        <!-- Custom Fonts -->
+        <MauiFont Include="Resources\Fonts\*" />
+
+        <!-- Raw Assets (also remove the "Resources\Raw" prefix) -->
+        <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="$(MauiVersion)" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="AimranDataScienceLab.Shared\AimranDataScienceLab.Shared.csproj" />
+      <ProjectReference Include="AimranDataScienceLab.Engine\AimranDataScienceLab.Engine.csproj" />
+      <ProjectReference Include="AimranDataScienceLab.Gateway\AimranDataScienceLab.Gateway.csproj" />
+      <ProjectReference Include="AimranDataScienceLab.Core\AimranDataScienceLab.Core.csproj" />
+    </ItemGroup>
+
+    <!-- Exclude sub-project directories from MAUI auto-globbing to prevent type conflicts -->
+    <ItemGroup>
+      <Compile Remove="AimranDataScienceLab.Core\**" />
+      <Compile Remove="AimranDataScienceLab.Engine\**" />
+      <Compile Remove="AimranDataScienceLab.Engine.Tests\**" />
+      <Compile Remove="AimranDataScienceLab.Gateway\**" />
+      <Compile Remove="AimranDataScienceLab.ServiceTemplates\**" />
+      <Compile Remove="AimranDataScienceLab.Shared\**" />
+      <Compile Remove="AimranDataScienceLab.Web\**" />
+      <Content Remove="AimranDataScienceLab.Core\**" />
+      <Content Remove="AimranDataScienceLab.Engine\**" />
+      <Content Remove="AimranDataScienceLab.Engine.Tests\**" />
+      <Content Remove="AimranDataScienceLab.Gateway\**" />
+      <Content Remove="AimranDataScienceLab.ServiceTemplates\**" />
+      <Content Remove="AimranDataScienceLab.Shared\**" />
+      <Content Remove="AimranDataScienceLab.Web\**" />
+      <None Remove="AimranDataScienceLab.Core\**" />
+      <None Remove="AimranDataScienceLab.Engine\**" />
+      <None Remove="AimranDataScienceLab.Engine.Tests\**" />
+      <None Remove="AimranDataScienceLab.Gateway\**" />
+      <None Remove="AimranDataScienceLab.ServiceTemplates\**" />
+      <None Remove="AimranDataScienceLab.Shared\**" />
+      <None Remove="AimranDataScienceLab.Web\**" />
+    </ItemGroup>
+
+    <!-- Exclude legacy code that now lives in the Shared RCL -->
+    <ItemGroup>
+      <Compile Remove="Services\**" />
+      <Compile Remove="Models\**" />
+      <Compile Remove="Engine\**" />
+    </ItemGroup>
+
+</Project>

@@ -1,0 +1,60 @@
+@using Microsoft.AspNetCore.Components.Web
+
+<ErrorBoundary @ref="errorBoundary">
+    <ChildContent>
+        @ChildContent
+    </ChildContent>
+    <ErrorContent Context="ex">
+        <div style="max-width: 600px; margin: 2rem auto; padding: 2rem; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            <div style="margin-bottom: 1.5rem;">
+                <h4 style="color: #d32f2f; font-weight: bold; margin: 0;">
+                    🚨 An Error Occurred
+                </h4>
+            </div>
+
+            <div style="background: #ffebee; border-left: 4px solid #d32f2f; padding: 1rem; margin-bottom: 1.5rem; border-radius: 4px;">
+                <p style="color: #333; margin: 0;">
+                    An unexpected error occurred while rendering this component.
+                    Please try refreshing the page.
+                </p>
+            </div>
+
+            @if (!string.IsNullOrEmpty(ex?.Message))
+            {
+                <div style="background-color: rgba(0,0,0,0.05); border-left: 4px solid #d32f2f; padding: 1rem; margin-bottom: 1rem; border-radius: 4px;">
+                    <p style="color: #d32f2f; font-weight: bold; margin: 0 0 0.5rem 0;">
+                        <strong>Error Details:</strong>
+                    </p>
+                    <p style="color: #333; margin: 0; font-size: 0.9rem;">
+                        @ex.Message
+                    </p>
+
+                    @if (!string.IsNullOrEmpty(ex.StackTrace))
+                    {
+                        <details style="margin-top: 1rem;">
+                            <summary style="cursor: pointer; font-weight: 500;">Stack Trace</summary>
+                            <pre style="background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; font-family: 'Courier New', monospace; font-size: 0.8rem; color: #333; white-space: pre-wrap;">@ex.StackTrace</pre>
+                        </details>
+                    }
+                </div>
+            }
+
+            <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                <button onclick="location.reload()" style="padding: 0.5rem 1rem; background: #1976d2; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">
+                    🔄 Try Again
+                </button>
+                <button onclick="window.location.href='/';" style="padding: 0.5rem 1rem; background: #f5f5f5; color: #333; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-weight: 500;">
+                    🏠 Go to Home
+                </button>
+            </div>
+        </div>
+    </ErrorContent>
+</ErrorBoundary>
+
+@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    private ErrorBoundary? errorBoundary;
+}
+

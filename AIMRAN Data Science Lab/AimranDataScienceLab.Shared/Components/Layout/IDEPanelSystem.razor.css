@@ -1,0 +1,50 @@
+.ide-layout {
+    width: 100%;
+    height: 100%;
+    background-color: var(--mud-palette-background);
+    overflow: hidden;
+}
+
+.ide-container {
+    padding: 8px;
+}
+
+.ide-panel {
+    display: flex;
+    flex-direction: column;
+    background-color: var(--mud-palette-surface);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+    animation: slideIn 0.2s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.panel-header {
+    user-select: none;
+    cursor: default;
+}
+
+.panel-content {
+    flex: 1;
+    background-color: var(--mud-palette-surface);
+}
+
+@media (max-width: 1200px) {
+    .ide-container {
+        grid-template-columns: 1fr !important;
+    }
+
+    .ide-panel {
+        grid-column: span 1 !important;
+        grid-row: span 1 !important;
+    }
+}

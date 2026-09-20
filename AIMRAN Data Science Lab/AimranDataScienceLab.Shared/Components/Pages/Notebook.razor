@@ -1,0 +1,277 @@
+@page "/notebook"
+@inject IPythonExecutionService PythonExecution
+@inject IRExecutionService RExecution
+
+<PageTitle>Notebook - AIMRAN Data Science Lab</PageTitle>
+
+<div class="notebook-page">
+    <header class="notebook-toolbar">
+        <div class="toolbar-left">
+            <h2>📓 Notebook</h2>
+            <span class="notebook-name">Untitled Notebook</span>
+        </div>
+        <div class="toolbar-right">
+            <button class="btn btn-sm" @onclick="() => AddCodeCell(CellLanguage.Python)">+ Python</button>
+            <button class="btn btn-sm" @onclick="() => AddCodeCell(CellLanguage.R)">+ R</button>
+            <button class="btn btn-sm" @onclick="AddMarkdownCell">+ Markdown</button>
+            <button class="btn btn-run btn-sm" @onclick="RunAllCells">▶ Run All</button>
+            <button class="btn btn-sm" @onclick="ClearAllOutputs">Clear All</button>
+        </div>
+    </header>
+
+    <div class="notebook-body">
+        @for (int i = 0; i < _cells.Count; i++)
+        {
+            var cell = _cells[i];
+            var index = i;
+
+            <div class="cell @cell.Type.ToString().ToLower() @(cell.IsSelected ? "selected" : "")" @onclick="() => SelectCell(index)">
+                <div class="cell-gutter">
+                    <span class="cell-number">[@(index + 1)]</span>
+                    <div class="cell-actions">
+                        @if (cell.Type == CellType.Code)
+                        {
+                            <button class="btn-icon-xs" title="Run" @onclick="() => RunCell(index)" @onclick:stopPropagation="true">▶</button>
+                        }
+                        <button class="btn-icon-xs" title="Delete" @onclick="() => DeleteCell(index)" @onclick:stopPropagation="true">✕</button>
+                        @if (index > 0)
+                        {
+                            <button class="btn-icon-xs" title="Move up" @onclick="() => MoveCell(index, -1)" @onclick:stopPropagation="true">↑</button>
+                        }
+                        @if (index < _cells.Count - 1)
+                        {
+                            <button class="btn-icon-xs" title="Move down" @onclick="() => MoveCell(index, 1)" @onclick:stopPropagation="true">↓</button>
+                        }
+                    </div>
+                </div>
+
+                <div class="cell-content">
+                    @if (cell.Type == CellType.Code)
+                    {
+                        <div class="cell-lang-bar">
+                            <select class="cell-lang-select" value="@cell.Language" @onchange="(e) => UpdateCellLanguage(index, e)">
+                                <option value="@CellLanguage.Python">🐍 Python</option>
+                                <option value="@CellLanguage.R">📊 R</option>
+                            </select>
+                        </div>
+                        <textarea class="cell-input code-input"
+                                  value="@cell.Source"
+                                  @oninput="(e) => UpdateCellSource(index, e.Value?.ToString() ?? string.Empty)"
+                                  spellcheck="false"
+                                  rows="@Math.Max(3, cell.Source.Split('\n').Length)">
+                        </textarea>
+
+                        @if (cell.IsRunning)
+                        {
+                            <div class="cell-output running">⏳ Running…</div>
+                        }
+                        else if (cell.Output is not null)
+                        {
+                            <div class="cell-output @(cell.Output.IsSuccess ? "" : "error")">
+                                @if (!string.IsNullOrEmpty(cell.Output.Stdout))
+                                {
+                                    <pre class="stdout">@cell.Output.Stdout</pre>
+                                }
+                                @if (!string.IsNullOrEmpty(cell.Output.Stderr))
+                                {
+                                    <pre class="stderr">@cell.Output.Stderr</pre>
+                                }
+                                @if (cell.Output.HasFigure && !string.IsNullOrEmpty(cell.Output.FigureBase64))
+                                {
+                                    <div class="cell-figure">
+                                        <img src="data:image/png;base64,@cell.Output.FigureBase64" alt="Plot" />
+                                    </div>
+                                }
+                                <small class="exec-time">@cell.Output.ExecutionTimeSeconds.ToString("F3")s</small>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        @if (cell.IsEditing)
+                        {
+                            <textarea class="cell-input markdown-input"
+                                      value="@cell.Source"
+                                      @oninput="(e) => UpdateCellSource(index, e.Value?.ToString() ?? string.Empty)"
+                                      @onblur="() => cell.IsEditing = false"
+                                      rows="@Math.Max(2, cell.Source.Split('\n').Length)"
+                                      placeholder="Write markdown here...">
+                            </textarea>
+                        }
+                        else
+                        {
+                            <div class="markdown-rendered" @ondblclick="() => cell.IsEditing = true">
+                                @if (string.IsNullOrWhiteSpace(cell.Source))
+                                {
+                                    <em class="placeholder">Double-click to edit markdown...</em>
+                                }
+                                else
+                                {
+                                    @((MarkupString)RenderMarkdown(cell.Source))
+                                }
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        }
+
+        <div class="add-cell-zone">
+            <button class="btn-add" @onclick="() => AddCodeCell(CellLanguage.Python)">+ Python Cell</button>
+            <button class="btn-add" @onclick="() => AddCodeCell(CellLanguage.R)">+ R Cell</button>
+            <button class="btn-add" @onclick="AddMarkdownCell">+ Markdown Cell</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<NotebookCell> _cells = [];
+
+    protected override void OnInitialized()
+    {
+        _cells.Add(new NotebookCell
+        {
+            Type = CellType.Markdown,
+            Source = "# My Analysis\n\nDescribe your analysis here."
+        });
+        _cells.Add(new NotebookCell
+        {
+            Type = CellType.Code,
+            Language = CellLanguage.Python,
+            Source = "import pandas as pd\nimport numpy as np\n\nprint(\"Hello AIMRAN!\")"
+        });
+    }
+
+    private void AddCodeCell(CellLanguage language)
+    {
+        _cells.Add(new NotebookCell { Type = CellType.Code, Language = language, Source = "" });
+    }
+
+    private void AddMarkdownCell()
+    {
+        _cells.Add(new NotebookCell { Type = CellType.Markdown, Source = "", IsEditing = true });
+    }
+
+    private void SelectCell(int index)
+    {
+        for (int i = 0; i < _cells.Count; i++)
+            _cells[i].IsSelected = i == index;
+    }
+
+    private void DeleteCell(int index)
+    {
+        if (_cells.Count > 1)
+            _cells.RemoveAt(index);
+    }
+
+    private void MoveCell(int index, int direction)
+    {
+        var newIndex = index + direction;
+        if (newIndex < 0 || newIndex >= _cells.Count) return;
+        (_cells[index], _cells[newIndex]) = (_cells[newIndex], _cells[index]);
+    }
+
+    private void UpdateCellSource(int index, string value)
+    {
+        _cells[index].Source = value;
+    }
+
+    private void UpdateCellLanguage(int index, ChangeEventArgs e)
+    {
+        if (Enum.TryParse<CellLanguage>(e.Value?.ToString(), out var lang))
+            _cells[index].Language = lang;
+    }
+
+    private async Task RunCell(int index)
+    {
+        var cell = _cells[index];
+        if (cell.Type != CellType.Code || string.IsNullOrWhiteSpace(cell.Source))
+            return;
+
+        cell.IsRunning = true;
+        cell.Output = null;
+        StateHasChanged();
+
+        try
+        {
+            cell.Output = cell.Language switch
+            {
+                CellLanguage.R => await RExecution.ExecuteAsync(cell.Source),
+                _ => await PythonExecution.ExecuteAsync(cell.Source)
+            };
+        }
+        catch (Exception ex)
+        {
+            cell.Output = new CodeExecutionResult
+            {
+                Stdout = "",
+                Stderr = $"Execution error: {ex.Message}",
+                ExitCode = -1,
+                ExecutionTimeSeconds = 0
+            };
+        }
+        finally
+        {
+            cell.IsRunning = false;
+        }
+    }
+
+    private async Task RunAllCells()
+    {
+        foreach (var cell in _cells.Where(c => c.Type == CellType.Code))
+        {
+            var index = _cells.IndexOf(cell);
+            await RunCell(index);
+            StateHasChanged();
+        }
+    }
+
+    private void ClearAllOutputs()
+    {
+        foreach (var cell in _cells)
+        {
+            cell.Output = null;
+            cell.IsRunning = false;
+        }
+    }
+
+    private static string RenderMarkdown(string markdown)
+    {
+        // Simple markdown rendering for headings, bold, italic, code
+        var lines = markdown.Split('\n');
+        var html = new System.Text.StringBuilder();
+
+        foreach (var line in lines)
+        {
+            var trimmed = line.TrimStart();
+            if (trimmed.StartsWith("### "))
+                html.AppendLine($"<h3>{System.Net.WebUtility.HtmlEncode(trimmed[4..])}</h3>");
+            else if (trimmed.StartsWith("## "))
+                html.AppendLine($"<h2>{System.Net.WebUtility.HtmlEncode(trimmed[3..])}</h2>");
+            else if (trimmed.StartsWith("# "))
+                html.AppendLine($"<h1>{System.Net.WebUtility.HtmlEncode(trimmed[2..])}</h1>");
+            else if (trimmed.StartsWith("- "))
+                html.AppendLine($"<li>{System.Net.WebUtility.HtmlEncode(trimmed[2..])}</li>");
+            else if (string.IsNullOrWhiteSpace(trimmed))
+                html.AppendLine("<br/>");
+            else
+                html.AppendLine($"<p>{System.Net.WebUtility.HtmlEncode(trimmed)}</p>");
+        }
+
+        return html.ToString();
+    }
+
+    private sealed class NotebookCell
+    {
+        public CellType Type { get; set; }
+        public CellLanguage Language { get; set; } = CellLanguage.Python;
+        public string Source { get; set; } = "";
+        public bool IsSelected { get; set; }
+        public bool IsEditing { get; set; }
+        public bool IsRunning { get; set; }
+        public CodeExecutionResult? Output { get; set; }
+    }
+
+    private enum CellType { Code, Markdown }
+    private enum CellLanguage { Python, R }
+}

@@ -1,0 +1,375 @@
+@page "/models"
+@inject IModelService ModelService
+@inject IExperimentService ExperimentService
+@inject IDatasetService DatasetService
+@inject IAzureMlService AzureMlService
+
+<PageTitle>Model Lab - DS-Workbench</PageTitle>
+
+<div class="page-container">
+    <header class="page-header">
+        <div class="header-content">
+            <h1>🤖 Model Lab</h1>
+            <p>Train, test, version, and deploy your ML models</p>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-primary" @onclick="ShowRegisterDialog">
+                <span>➕</span> Register Model
+            </button>
+        </div>
+    </header>
+
+    <!-- Model Stats -->
+    <div class="model-stats">
+        <div class="stat-item">
+            <span class="stat-value">@_totalModels</span>
+            <span class="stat-label">Total Models</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-value">@_deployedCount</span>
+            <span class="stat-label">Deployed</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-value">@_registeredCount</span>
+            <span class="stat-label">Registered</span>
+        </div>
+    </div>
+
+    <!-- Model List -->
+    @if (_isLoading)
+    {
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Loading models...</p>
+        </div>
+    }
+    else if (!_models.Any())
+    {
+        <div class="empty-state">
+            <div class="empty-icon">🤖</div>
+            <h3>No models yet</h3>
+            <p>Train experiments to generate models, or register an existing model.</p>
+            <button class="btn btn-primary" @onclick="ShowRegisterDialog">Register Model</button>
+        </div>
+    }
+    else
+    {
+        <div class="model-grid">
+            @foreach (var model in _models.OrderByDescending(m => m.CreatedAt))
+            {
+                <div class="model-card">
+                    <div class="model-header">
+                        <div class="model-title">
+                            <h3>@model.Name</h3>
+                            <span class="version-badge">v@model.Version</span>
+                        </div>
+                        <span class="status-badge @model.Status.ToString().ToLower()">
+                            @GetStatusIcon(model.Status) @model.Status
+                        </span>
+                    </div>
+
+                    <div class="model-body">
+                        <div class="model-info">
+                            <div class="info-row">
+                                <span class="info-label">Algorithm</span>
+                                <span class="info-value">@model.Algorithm</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Framework</span>
+                                <span class="info-value">@model.Framework</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Size</span>
+                                <span class="info-value">@FormatSize(model.SizeBytes)</span>
+                            </div>
+                        </div>
+
+                        @if (model.PerformanceMetrics.Any())
+                        {
+                            <div class="model-metrics">
+                                <h4>Performance Metrics</h4>
+                                <div class="metrics-grid">
+                                    @foreach (var metric in model.PerformanceMetrics)
+                                    {
+                                        <div class="metric-item">
+                                            <span class="metric-name">@metric.Key</span>
+                                            <span class="metric-value">@metric.Value.ToString("F4")</span>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+
+                        @if (model.IsDeployed && !string.IsNullOrEmpty(model.DeploymentEndpoint))
+                        {
+                            <div class="deployment-info">
+                                <span class="deployed-badge">🌐 Deployed</span>
+                                <code class="endpoint-url">@model.DeploymentEndpoint</code>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="model-footer">
+                        <span class="created-date">Created @model.CreatedAt.ToString("MMM dd, yyyy")</span>
+                        <div class="model-actions">
+                            <button class="btn-icon" title="Test Model" @onclick="() => TestModel(model.Id)">🧪</button>
+                            <button class="btn-icon" title="New Version" @onclick="() => CreateVersion(model.Id)">📝</button>
+                            @if (!model.IsDeployed)
+                            {
+                                <button class="btn-icon" title="Deploy" @onclick="() => ShowDeployDialog(model)">🚀</button>
+                                <button class="btn-icon cloud" title="Deploy to Azure" @onclick="() => DeployToAzure(model)">☁️</button>
+                            }
+                            <button class="btn-icon danger" title="Delete" @onclick="() => DeleteModel(model.Id)">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    <!-- Register Dialog -->
+    @if (_showRegisterDialog)
+    {
+        <div class="modal-overlay" @onclick="HideRegisterDialog">
+            <div class="modal-content large" @onclick:stopPropagation="true">
+                <h2>Register Model</h2>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Name</label>
+                        <input type="text" @bind="_newModelName" placeholder="My Model" />
+                    </div>
+                    <div class="form-group">
+                        <label>Version</label>
+                        <input type="number" value="1" disabled />
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Algorithm</label>
+                        <select @bind="_newModelAlgorithm">
+                            <option value="">Select algorithm...</option>
+                            <option value="RandomForest">Random Forest</option>
+                            <option value="XGBoost">XGBoost</option>
+                            <option value="LightGBM">LightGBM</option>
+                            <option value="NeuralNetwork">Neural Network</option>
+                            <option value="LinearRegression">Linear Regression</option>
+                            <option value="LogisticRegression">Logistic Regression</option>
+                            <option value="SVM">SVM</option>
+                            <option value="Custom">Custom</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Framework</label>
+                        <select @bind="_newModelFramework">
+                            <option value="">Select framework...</option>
+                            <option value="scikit-learn">scikit-learn</option>
+                            <option value="PyTorch">PyTorch</option>
+                            <option value="TensorFlow">TensorFlow</option>
+                            <option value="ML.NET">ML.NET</option>
+                            <option value="ONNX">ONNX</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>From Experiment</label>
+                    <select @bind="_selectedExperimentId">
+                        <option value="">Select experiment (optional)...</option>
+                        @foreach (var exp in _experiments.Where(e => e.Status == ExperimentStatus.Completed))
+                        {
+                            <option value="@exp.Id">@exp.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Model File Path</label>
+                    <input type="text" @bind="_newModelPath" placeholder="C:\models\model.pkl" />
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" @onclick="HideRegisterDialog">Cancel</button>
+                    <button class="btn btn-primary" @onclick="RegisterModel">Register</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Deploy Dialog -->
+    @if (_showDeployDialog && _selectedModel is not null)
+    {
+        <div class="modal-overlay" @onclick="HideDeployDialog">
+            <div class="modal-content" @onclick:stopPropagation="true">
+                <h2>Deploy Model</h2>
+                <p>Deploy <strong>@_selectedModel.Name</strong> v@_selectedModel.Version</p>
+                <div class="form-group">
+                    <label>Endpoint Name</label>
+                    <input type="text" @bind="_deployEndpoint" placeholder="my-model-endpoint" />
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" @onclick="HideDeployDialog">Cancel</button>
+                    <button class="btn btn-primary" @onclick="DeployModel">Deploy Locally</button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<MlModel> _models = [];
+    private List<Experiment> _experiments = [];
+    private List<Dataset> _datasets = [];
+    private bool _isLoading = true;
+
+    // Stats
+    private int _totalModels;
+    private int _deployedCount;
+    private int _registeredCount;
+
+    // Register dialog
+    private bool _showRegisterDialog;
+    private string _newModelName = "";
+    private string _newModelAlgorithm = "";
+    private string _newModelFramework = "";
+    private string _newModelPath = "";
+    private string _selectedExperimentId = "";
+
+    // Deploy dialog
+    private bool _showDeployDialog;
+    private MlModel? _selectedModel;
+    private string _deployEndpoint = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _isLoading = true;
+
+        var modelsTask = ModelService.GetAllAsync();
+        var experimentsTask = ExperimentService.GetAllAsync();
+        var datasetsTask = DatasetService.GetAllAsync();
+
+        await Task.WhenAll(modelsTask, experimentsTask, datasetsTask);
+
+        _models = (await modelsTask).ToList();
+        _experiments = (await experimentsTask).ToList();
+        _datasets = (await datasetsTask).ToList();
+
+        UpdateStats();
+        _isLoading = false;
+    }
+
+    private void UpdateStats()
+    {
+        _totalModels = _models.Count;
+        _deployedCount = _models.Count(m => m.IsDeployed);
+        _registeredCount = _models.Count(m => m.Status == ModelStatus.Registered);
+    }
+
+    private void ShowRegisterDialog() => _showRegisterDialog = true;
+    private void HideRegisterDialog()
+    {
+        _showRegisterDialog = false;
+        _newModelName = "";
+        _newModelAlgorithm = "";
+        _newModelFramework = "";
+        _newModelPath = "";
+        _selectedExperimentId = "";
+    }
+
+    private void ShowDeployDialog(MlModel model)
+    {
+        _selectedModel = model;
+        _deployEndpoint = model.Name.ToLower().Replace(" ", "-");
+        _showDeployDialog = true;
+    }
+
+    private void HideDeployDialog()
+    {
+        _showDeployDialog = false;
+        _selectedModel = null;
+        _deployEndpoint = "";
+    }
+
+    private async Task RegisterModel()
+    {
+        if (string.IsNullOrWhiteSpace(_newModelName) ||
+            string.IsNullOrWhiteSpace(_newModelAlgorithm) ||
+            string.IsNullOrWhiteSpace(_newModelFramework) ||
+            string.IsNullOrWhiteSpace(_newModelPath))
+            return;
+
+        var experimentId = Guid.TryParse(_selectedExperimentId, out var id) ? id : Guid.Empty;
+
+        await ModelService.RegisterAsync(
+            _newModelName,
+            experimentId,
+            _newModelAlgorithm,
+            _newModelFramework,
+            _newModelPath);
+
+        HideRegisterDialog();
+        await LoadDataAsync();
+    }
+
+    private async Task TestModel(Guid modelId)
+    {
+        if (!_datasets.Any())
+            return;
+
+        var result = await ModelService.TestAsync(modelId, _datasets.First().Id);
+        // TODO: Show test results in modal
+    }
+
+    private async Task CreateVersion(Guid modelId)
+    {
+        // TODO: Show version creation dialog
+        await Task.CompletedTask;
+    }
+
+    private async Task DeployModel()
+    {
+        if (_selectedModel is null || string.IsNullOrWhiteSpace(_deployEndpoint))
+            return;
+
+        await ModelService.DeployAsync(_selectedModel.Id, _deployEndpoint);
+        HideDeployDialog();
+        await LoadDataAsync();
+    }
+
+    private async Task DeployToAzure(MlModel model)
+    {
+        var result = await AzureMlService.RegisterModelAsync(model);
+        if (result.IsSuccess && result.ResourceId is not null)
+        {
+            await AzureMlService.DeployModelAsync(result.ResourceId, model.Name.ToLower().Replace(" ", "-"));
+        }
+        await LoadDataAsync();
+    }
+
+    private async Task DeleteModel(Guid id)
+    {
+        await ModelService.DeleteAsync(id);
+        await LoadDataAsync();
+    }
+
+    private static string GetStatusIcon(ModelStatus status) => status switch
+    {
+        ModelStatus.Draft => "📝",
+        ModelStatus.Training => "🔄",
+        ModelStatus.Trained => "✅",
+        ModelStatus.Validated => "🔍",
+        ModelStatus.Registered => "📋",
+        ModelStatus.Deployed => "🚀",
+        ModelStatus.Archived => "📦",
+        _ => "❓"
+    };
+
+    private static string FormatSize(long bytes) => bytes switch
+    {
+        < 1024 => $"{bytes} B",
+        < 1024 * 1024 => $"{bytes / 1024.0:F1} KB",
+        < 1024 * 1024 * 1024 => $"{bytes / (1024.0 * 1024):F1} MB",
+        _ => $"{bytes / (1024.0 * 1024 * 1024):F2} GB"
+    };
+}

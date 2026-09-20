@@ -1,0 +1,63 @@
+@if (!isLoading && !hasPermission)
+{
+    <MudTooltip Text="@(Tooltip ?? "You don't have permission to access this")" Color="Color.Error">
+        <div style="opacity: 0.5; pointer-events: none;">
+            @ChildContent
+        </div>
+    </MudTooltip>
+}
+else if (!isLoading)
+{
+    @ChildContent
+}
+else
+{
+    <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+}
+
+@code {
+    [Parameter]
+    public string? Permission { get; set; }
+
+    [Parameter]
+    public string? Tooltip { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private bool hasPermission = false;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CheckPermission();
+    }
+
+    private async Task CheckPermission()
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(Permission) || AuthenticationStateTask == null)
+            {
+                hasPermission = true;
+                return;
+            }
+
+            var authState = await AuthenticationStateTask;
+            var user = authState.User;
+
+            if (user?.Identity?.IsAuthenticated == true)
+            {
+                var permissionClaim = user.FindFirst("permission_" + Permission);
+                hasPermission = permissionClaim != null;
+            }
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

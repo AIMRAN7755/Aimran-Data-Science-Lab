@@ -1,0 +1,110 @@
+<MudStack Spacing="3">
+    <MudText Typo="Typo.H5" Class="font-weight-bold">Preferences</MudText>
+    <MudText Typo="Typo.Body2" Style="color: var(--mud-palette-text-secondary);">Customize your experience and regional settings</MudText>
+
+    <MudPaper Elevation="0" Class="pa-4" Style="background-color: var(--mud-palette-background-grey);">
+        <MudStack Spacing="3">
+            <!-- Language & Region Settings -->
+            <MudStack>
+                <MudText Typo="Typo.Subtitle2" Class="font-weight-bold">Language & Region</MudText>
+
+                <MudSelect T="string" Label="Language" Value="@language" ValueChanged="@((string val) => language = val)" Variant="Variant.Outlined">
+                    <MudSelectItem Value="@("en")">English</MudSelectItem>
+                    <MudSelectItem Value="@("es")">Spanish</MudSelectItem>
+                    <MudSelectItem Value="@("fr")">French</MudSelectItem>
+                    <MudSelectItem Value="@("de")">German</MudSelectItem>
+                    <MudSelectItem Value="@("zh")">Chinese</MudSelectItem>
+                </MudSelect>
+
+                <MudSelect T="string" Label="Date Format" Value="@dateFormat" ValueChanged="@((string val) => dateFormat = val)" Variant="Variant.Outlined">
+                    <MudSelectItem Value="@("MM/dd/yyyy")">MM/dd/yyyy</MudSelectItem>
+                    <MudSelectItem Value="@("dd/MM/yyyy")">dd/MM/yyyy</MudSelectItem>
+                    <MudSelectItem Value="@("yyyy-MM-dd")">yyyy-MM-dd</MudSelectItem>
+                </MudSelect>
+
+                <MudSelect T="string" Label="Time Format" Value="@timeFormat" ValueChanged="@((string val) => timeFormat = val)" Variant="Variant.Outlined">
+                    <MudSelectItem Value="@("12")">12 Hour</MudSelectItem>
+                    <MudSelectItem Value="@("24")">24 Hour</MudSelectItem>
+                </MudSelect>
+            </MudStack>
+
+            <MudDivider />
+
+            <!-- Editor Settings -->
+            <MudStack>
+                <MudText Typo="Typo.Subtitle2" Class="font-weight-bold">Editor Preferences</MudText>
+
+                <MudSelect T="string" Label="Font Size" Value="@fontSize" ValueChanged="@((string val) => fontSize = val)" Variant="Variant.Outlined">
+                    <MudSelectItem Value="@("small")">Small (12px)</MudSelectItem>
+                    <MudSelectItem Value="@("medium")">Medium (14px)</MudSelectItem>
+                    <MudSelectItem Value="@("large")">Large (16px)</MudSelectItem>
+                </MudSelect>
+
+                <MudCheckBox @bind-Value="enableLineNumbers" Label="Show line numbers" />
+                <MudCheckBox @bind-Value="enableWordWrap" Label="Enable word wrap" />
+                <MudCheckBox @bind-Value="enableAutoSave" Label="Auto-save changes" />
+            </MudStack>
+
+            <MudDivider />
+
+            <!-- ML Framework Settings -->
+            <MudStack>
+                <MudText Typo="Typo.Subtitle2" Class="font-weight-bold">ML Framework Defaults</MudText>
+
+                <MudSelect T="string" Label="Default Framework" Value="@mlFramework" ValueChanged="@((string val) => mlFramework = val)" Variant="Variant.Outlined">
+                    <MudSelectItem Value="@("tensorflow")">TensorFlow</MudSelectItem>
+                    <MudSelectItem Value="@("pytorch")">PyTorch</MudSelectItem>
+                    <MudSelectItem Value="@("scikit")">Scikit-learn</MudSelectItem>
+                    <MudSelectItem Value="@("xgboost")">XGBoost</MudSelectItem>
+                </MudSelect>
+
+                <MudSelect T="string" Label="Visualization Library" Value="@vizLibrary" ValueChanged="@((string val) => vizLibrary = val)" Variant="Variant.Outlined">
+                    <MudSelectItem Value="@("matplotlib")">Matplotlib</MudSelectItem>
+                    <MudSelectItem Value="@("plotly")">Plotly</MudSelectItem>
+                    <MudSelectItem Value="@("seaborn")">Seaborn</MudSelectItem>
+                    <MudSelectItem Value="@("altair")">Altair</MudSelectItem>
+                </MudSelect>
+            </MudStack>
+
+            <MudDivider />
+
+            <!-- Action Buttons -->
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Filled" Color="MudBlazor.Color.Primary" OnClick="SavePreferences">Save Preferences</MudButton>
+                <MudButton Variant="Variant.Outlined" OnClick="ResetPreferences">Reset to Default</MudButton>
+            </MudStack>
+        </MudStack>
+    </MudPaper>
+</MudStack>
+
+@code {
+    private string language = "en";
+    private string dateFormat = "MM/dd/yyyy";
+    private string timeFormat = "12";
+    private string fontSize = "medium";
+    private bool enableLineNumbers = true;
+    private bool enableWordWrap = true;
+    private bool enableAutoSave = true;
+    private string mlFramework = "tensorflow";
+    private string vizLibrary = "matplotlib";
+
+    private async Task SavePreferences()
+    {
+        // TODO: Implement preferences save logic
+        await Task.CompletedTask;
+    }
+
+    private async Task ResetPreferences()
+    {
+        // Reset to defaults
+        language = "en";
+        dateFormat = "MM/dd/yyyy";
+        timeFormat = "12";
+        fontSize = "medium";
+        enableLineNumbers = true;
+        enableWordWrap = true;
+        enableAutoSave = true;
+        mlFramework = "tensorflow";
+        vizLibrary = "matplotlib";
+    }
+}

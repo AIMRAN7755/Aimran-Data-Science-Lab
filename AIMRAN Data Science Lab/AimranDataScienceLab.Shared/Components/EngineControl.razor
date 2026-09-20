@@ -1,0 +1,295 @@
+@implements IAsyncDisposable
+@inject IEngineManager EngineManager
+@inject IJSRuntime JS
+@using AimranDataScienceLab.Engine
+
+<div class="engine-control">
+    <div class="engine-header">
+        <div class="engine-title">
+            <span class="engine-icon">@GetEngineIcon()</span>
+            <span>@Engine @GetPortLabel()</span>
+            @if (CurrentStatus != null)
+            {
+                <span class="engine-status-badge" class:status-running="CurrentStatus.Status == EngineStatus.Running" class:status-stopped="CurrentStatus.Status == EngineStatus.Stopped">
+                    @(CurrentStatus.Status == EngineStatus.Running ? "Running" : "Stopped")
+                </span>
+            }
+        </div>
+        @if (IsLoading)
+        {
+            <div class="spinner-small"></div>
+        }
+    </div>
+
+    @if (CurrentStatus != null)
+    {
+        <div class="engine-info">
+            <div class="detail-row">
+                <span class="detail-label">Status:</span>
+                <span class="detail-value">@(CurrentStatus.Status == EngineStatus.Running ? "✓ Running" : "✗ Stopped")</span>
+            </div>
+            @if (!string.IsNullOrEmpty(CurrentStatus.ErrorMessage))
+            {
+                <div class="detail-row error">
+                    <span class="detail-label">Error:</span>
+                    <span class="error-text">@CurrentStatus.ErrorMessage</span>
+                </div>
+            }
+            @if (CurrentStatus.Status == EngineStatus.Running && CurrentStatus.Metrics != null)
+            {
+                <div class="detail-row">
+                    <span class="detail-label">Uptime:</span>
+                    <span class="detail-value">@FormatUptime(CurrentStatus.Metrics.Uptime)</span>
+                </div>
+                <div class="metrics-row">
+                    <div class="metric">
+                        <span class="metric-label">CPU</span>
+                        <span class="metric-value">@CurrentStatus.Metrics.CpuPercent.ToString("F1")%</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Memory</span>
+                        <span class="metric-value">@CurrentStatus.Metrics.MemoryMB MB</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Port</span>
+                        <span class="metric-value">@CurrentStatus.Port</span>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div class="engine-controls">
+            @if (CurrentStatus.Status == EngineStatus.Running)
+            {
+                <button class="btn-stop" @onclick="StopEngineAsync" disabled="@IsLoading">
+                    @if (IsLoading) { <span class="spinner-small"></span> }
+                    Stop
+                </button>
+                <button class="btn-restart" @onclick="RestartEngineAsync" disabled="@IsLoading" title="Restart engine">↻</button>
+            }
+            else
+            {
+                <button class="btn-start" @onclick="StartEngineAsync" disabled="@IsLoading">
+                    @if (IsLoading) { <span class="spinner-small"></span> }
+                    Start
+                </button>
+            }
+            <button class="btn-logs" @onclick="ShowLogsAsync" disabled="@IsLoading" title="View logs">📋</button>
+        </div>
+
+        @if (ShowLogs)
+        {
+            <div class="engine-logs">
+                <div class="logs-header">
+                    <span class="logs-title">Recent Logs</span>
+                    <button class="btn-close-logs" @onclick="@(() => ShowLogs = false)">×</button>
+                </div>
+                <div class="logs-content">
+                    @if (!Logs.Any())
+                    {
+                        <div class="logs-empty">No logs available</div>
+                    }
+                    else
+                    {
+                        <div class="logs-list">
+                            @foreach (var log in Logs)
+                            {
+                                <div class="log-entry">@log</div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="engine-info">
+            <div class="detail-row">
+                <span class="detail-label">Status:</span>
+                <span class="detail-value">Loading...</span>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public ExternalEngine Engine { get; set; }
+
+    private EngineProcessStatus? CurrentStatus;
+    private List<string> Logs = new();
+    private bool ShowLogs = false;
+    private bool IsLoading = false;
+    private CancellationTokenSource? _cts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _cts = new CancellationTokenSource();
+        await RefreshStatusAsync();
+        _ = MonitorEngineStatusAsync();
+    }
+
+    private async Task RefreshStatusAsync()
+    {
+        try
+        {
+            var snapshot = await EngineManager.GetStatusAsync();
+            CurrentStatus = Engine switch
+            {
+                ExternalEngine.Python => snapshot.Python,
+                ExternalEngine.Rust => snapshot.Rust,
+                ExternalEngine.R => snapshot.R,
+                _ => null
+            };
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error refreshing status: {ex.Message}");
+        }
+    }
+
+    private async Task StartEngineAsync()
+    {
+        try
+        {
+            IsLoading = true;
+            StateHasChanged();
+
+            var success = await EngineManager.StartEngineAsync(Engine);
+            await RefreshStatusAsync();
+
+            if (success)
+            {
+                await JS.InvokeVoidAsync("console.log", $"{Engine} engine started");
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error starting engine: {ex.Message}");
+        }
+        finally
+        {
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task StopEngineAsync()
+    {
+        try
+        {
+            IsLoading = true;
+            StateHasChanged();
+
+            var success = await EngineManager.StopEngineAsync(Engine);
+            await RefreshStatusAsync();
+
+            if (success)
+            {
+                await JS.InvokeVoidAsync("console.log", $"{Engine} engine stopped");
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error stopping engine: {ex.Message}");
+        }
+        finally
+        {
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RestartEngineAsync()
+    {
+        try
+        {
+            IsLoading = true;
+            StateHasChanged();
+
+            var success = await EngineManager.RestartEngineAsync(Engine);
+            await RefreshStatusAsync();
+
+            if (success)
+            {
+                await JS.InvokeVoidAsync("console.log", $"{Engine} engine restarted");
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error restarting engine: {ex.Message}");
+        }
+        finally
+        {
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ShowLogsAsync()
+    {
+        try
+        {
+            ShowLogs = !ShowLogs;
+            if (ShowLogs)
+            {
+                Logs = (await EngineManager.GetEngineLogsAsync(Engine, 50)).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error retrieving logs: {ex.Message}");
+        }
+    }
+
+    private async Task MonitorEngineStatusAsync()
+    {
+        try
+        {
+            while (!(_cts?.Token.IsCancellationRequested ?? true))
+            {
+                await Task.Delay(2000, _cts.Token);
+                await RefreshStatusAsync();
+                StateHasChanged();
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Monitor engine error: {ex.Message}");
+        }
+    }
+
+    private string GetEngineIcon() => Engine switch
+    {
+        ExternalEngine.Python => "🐍",
+        ExternalEngine.Rust => "🦀",
+        ExternalEngine.R => "📊",
+        _ => "⚙️"
+    };
+
+    private string GetPortLabel() => Engine switch
+    {
+        ExternalEngine.Python => "(8100)",
+        ExternalEngine.Rust => "(8200)",
+        ExternalEngine.R => "(8300)",
+        _ => ""
+    };
+
+    private string FormatUptime(TimeSpan uptime)
+    {
+        if (uptime.TotalHours >= 1)
+            return $"{uptime.Hours}h {uptime.Minutes}m";
+        if (uptime.TotalMinutes >= 1)
+            return $"{uptime.Minutes}m {uptime.Seconds}s";
+        return $"{uptime.Seconds}s";
+    }
+
+    async ValueTask IAsyncDisposable.DisposeAsync()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+    }
+}

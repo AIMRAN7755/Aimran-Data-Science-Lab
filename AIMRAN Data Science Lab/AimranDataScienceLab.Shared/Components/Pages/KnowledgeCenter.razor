@@ -1,0 +1,259 @@
+@page "/knowledge"
+
+<PageTitle>Knowledge Center - AIMRAN Data Science Lab</PageTitle>
+
+<div class="knowledge-page">
+    <header class="page-header">
+        <div class="header-content">
+            <h1>📚 Knowledge Center</h1>
+            <p>Data Science cheat sheets, formulas & references</p>
+        </div>
+    </header>
+
+    <!-- Search -->
+    <div class="search-bar">
+        <input type="text" @bind="_searchText" @bind:event="oninput"
+               placeholder="🔎 Search formulas, functions, concepts..." class="search-input" />
+    </div>
+
+    <!-- Category Tabs -->
+    <div class="category-tabs">
+        @foreach (var cat in _categories)
+        {
+            <button class="tab-btn @(_activeCategory == cat.Key ? "active" : "")"
+                    @onclick="() => _activeCategory = cat.Key">
+                @cat.Icon @cat.Name
+            </button>
+        }
+    </div>
+
+    <!-- Content -->
+    <div class="knowledge-content">
+        @foreach (var entry in FilteredEntries)
+        {
+            <div class="knowledge-card">
+                <div class="card-header">
+                    <span class="card-category">@GetCategoryIcon(entry.Category) @entry.Category</span>
+                    <h3>@entry.Title</h3>
+                </div>
+                <div class="card-body">
+                    <p class="description">@entry.Description</p>
+                    @if (!string.IsNullOrEmpty(entry.Formula))
+                    {
+                        <div class="formula-block">
+                            <code>@entry.Formula</code>
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(entry.CodeExample))
+                    {
+                        <div class="code-block">
+                            <div class="code-label">Python</div>
+                            <pre>@entry.CodeExample</pre>
+                        </div>
+                    }
+                    @if (entry.Tips.Count > 0)
+                    {
+                        <div class="tips">
+                            @foreach (var tip in entry.Tips)
+                            {
+                                <span class="tip">💡 @tip</span>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        @if (!FilteredEntries.Any())
+        {
+            <div class="empty-state">
+                <p>No results for "@_searchText"</p>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private string _searchText = "";
+    private string _activeCategory = "all";
+
+    private List<KnowledgeEntry> FilteredEntries
+    {
+        get
+        {
+            var entries = _entries.AsEnumerable();
+
+            if (_activeCategory != "all")
+                entries = entries.Where(e => e.Category.Equals(_activeCategory, StringComparison.OrdinalIgnoreCase));
+
+            if (!string.IsNullOrWhiteSpace(_searchText))
+                entries = entries.Where(e =>
+                    e.Title.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ||
+                    e.Description.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ||
+                    e.Category.Contains(_searchText, StringComparison.OrdinalIgnoreCase));
+
+            return entries.ToList();
+        }
+    }
+
+    private static readonly List<(string Key, string Name, string Icon)> _categories =
+    [
+        ("all", "All", "📋"),
+        ("Pandas", "Pandas", "🐼"),
+        ("NumPy", "NumPy", "🔢"),
+        ("SQL", "SQL", "🗄️"),
+        ("Statistics", "Statistics", "📊"),
+        ("ML", "Machine Learning", "🤖"),
+        ("Excel", "Excel", "📗"),
+    ];
+
+    private static string GetCategoryIcon(string category) => category switch
+    {
+        "Pandas" => "🐼",
+        "NumPy" => "🔢",
+        "SQL" => "🗄️",
+        "Statistics" => "📊",
+        "ML" => "🤖",
+        "Excel" => "📗",
+        _ => "📋"
+    };
+
+    private static readonly List<KnowledgeEntry> _entries =
+    [
+        // ── Pandas ─────────────────────────────────────────────
+        new("Pandas", "Read CSV/Excel",
+            "Load data from various file formats into a DataFrame.",
+            CodeExample: "import pandas as pd\n\ndf = pd.read_csv('data.csv')\ndf = pd.read_excel('data.xlsx')\ndf = pd.read_json('data.json')\ndf = pd.read_parquet('data.parquet')"),
+
+        new("Pandas", "DataFrame Filtering",
+            "Select rows based on conditions.",
+            CodeExample: "# Single condition\ndf[df['age'] > 30]\n\n# Multiple conditions\ndf[(df['age'] > 25) & (df['salary'] > 50000)]\n\n# Using query\ndf.query('age > 25 and salary > 50000')"),
+
+        new("Pandas", "GroupBy & Aggregation",
+            "Group data and compute aggregate statistics.",
+            CodeExample: "# Group by single column\ndf.groupby('department')['salary'].mean()\n\n# Multiple aggregations\ndf.groupby('department').agg(\n    avg_salary=('salary', 'mean'),\n    count=('name', 'count'),\n    max_age=('age', 'max')\n)"),
+
+        new("Pandas", "Merge & Join",
+            "Combine DataFrames using merge, join, or concat.",
+            CodeExample: "# Inner merge\npd.merge(df1, df2, on='id', how='inner')\n\n# Left join\npd.merge(df1, df2, on='id', how='left')\n\n# Concatenate\npd.concat([df1, df2], axis=0)  # vertical\npd.concat([df1, df2], axis=1)  # horizontal"),
+
+        new("Pandas", "Pivot Tables",
+            "Create pivot tables for data summarization.",
+            CodeExample: "df.pivot_table(\n    values='sales',\n    index='region',\n    columns='product',\n    aggfunc='sum',\n    fill_value=0\n)"),
+
+        new("Pandas", "Handle Missing Data",
+            "Detect and handle NaN values.",
+            CodeExample: "# Detect\ndf.isnull().sum()\ndf.isna().any()\n\n# Drop\ndf.dropna()\ndf.dropna(subset=['col1'])\n\n# Fill\ndf.fillna(0)\ndf['col'].fillna(df['col'].mean())"),
+
+        // ── NumPy ──────────────────────────────────────────────
+        new("NumPy", "Array Creation",
+            "Create arrays using various methods.",
+            CodeExample: "import numpy as np\n\na = np.array([1, 2, 3])\nb = np.zeros((3, 4))\nc = np.ones((2, 3))\nd = np.arange(0, 10, 2)\ne = np.linspace(0, 1, 50)\nf = np.random.randn(3, 3)"),
+
+        new("NumPy", "Array Operations",
+            "Element-wise and matrix operations.",
+            CodeExample: "a = np.array([1, 2, 3])\nb = np.array([4, 5, 6])\n\n# Element-wise\na + b, a * b, a ** 2\n\n# Matrix\nnp.dot(a, b)  # dot product\nA @ B  # matrix multiply\nnp.linalg.inv(A)  # inverse"),
+
+        new("NumPy", "Broadcasting",
+            "Automatic shape alignment for operations.",
+            Formula: "Array (m×n) op Scalar → broadcasts scalar to (m×n)\nArray (m×1) op Array (1×n) → result is (m×n)",
+            CodeExample: "a = np.array([[1], [2], [3]])  # (3,1)\nb = np.array([10, 20, 30])     # (1,3)\nresult = a + b  # (3,3)",
+            Tips: ["Shapes must be compatible: equal or one is 1"]),
+
+        // ── SQL ────────────────────────────────────────────────
+        new("SQL", "SELECT & WHERE",
+            "Basic querying and filtering.",
+            CodeExample: "SELECT name, age, salary\nFROM employees\nWHERE department = 'Engineering'\n  AND salary > 75000\nORDER BY salary DESC\nLIMIT 10;"),
+
+        new("SQL", "JOIN Types",
+            "Combine rows from multiple tables.",
+            CodeExample: "-- Inner Join\nSELECT * FROM orders o\nINNER JOIN customers c ON o.customer_id = c.id;\n\n-- Left Join\nSELECT * FROM customers c\nLEFT JOIN orders o ON c.id = o.customer_id;\n\n-- Full Outer Join\nSELECT * FROM t1\nFULL OUTER JOIN t2 ON t1.id = t2.id;"),
+
+        new("SQL", "GROUP BY & Aggregation",
+            "Group rows and apply aggregate functions.",
+            CodeExample: "SELECT department,\n       COUNT(*) as emp_count,\n       AVG(salary) as avg_salary,\n       MAX(salary) as max_salary\nFROM employees\nGROUP BY department\nHAVING COUNT(*) > 5\nORDER BY avg_salary DESC;"),
+
+        new("SQL", "Window Functions",
+            "Perform calculations across related rows.",
+            CodeExample: "SELECT name, department, salary,\n  RANK() OVER (PARTITION BY department ORDER BY salary DESC) as rank,\n  AVG(salary) OVER (PARTITION BY department) as dept_avg,\n  LAG(salary) OVER (ORDER BY hire_date) as prev_salary\nFROM employees;"),
+
+        // ── Statistics ─────────────────────────────────────────
+        new("Statistics", "Mean, Median, Mode",
+            "Central tendency measures.",
+            Formula: "Mean: μ = Σxᵢ / n\nMedian: middle value when sorted\nMode: most frequent value",
+            CodeExample: "import numpy as np\nfrom scipy import stats\n\ndata = [2, 3, 5, 7, 7, 8]\nprint(np.mean(data))    # 5.33\nprint(np.median(data))  # 6.0\nprint(stats.mode(data)) # 7"),
+
+        new("Statistics", "Variance & Standard Deviation",
+            "Measures of data spread.",
+            Formula: "Variance: σ² = Σ(xᵢ - μ)² / n\nStd Dev: σ = √(σ²)",
+            CodeExample: "import numpy as np\n\ndata = [2, 4, 4, 4, 5, 5, 7, 9]\nprint(np.var(data))  # variance\nprint(np.std(data))  # std deviation"),
+
+        new("Statistics", "Pearson Correlation",
+            "Linear relationship between two variables.",
+            Formula: "r = Σ[(xᵢ - x̄)(yᵢ - ȳ)] / √[Σ(xᵢ - x̄)² · Σ(yᵢ - ȳ)²]",
+            CodeExample: "import numpy as np\nfrom scipy.stats import pearsonr\n\nx = [1, 2, 3, 4, 5]\ny = [2, 4, 5, 4, 5]\nr, p_value = pearsonr(x, y)\nprint(f'r={r:.4f}, p={p_value:.4f}')",
+            Tips: ["r = 1: perfect positive", "r = -1: perfect negative", "r ≈ 0: no linear relationship"]),
+
+        new("Statistics", "Normal Distribution",
+            "The bell curve — fundamental to statistics.",
+            Formula: "f(x) = (1/σ√2π) · e^(-(x-μ)²/2σ²)",
+            CodeExample: "from scipy.stats import norm\nimport numpy as np\n\n# PDF at x=0 for standard normal\nnorm.pdf(0)  # 0.3989\n\n# CDF: P(X <= 1.96)\nnorm.cdf(1.96)  # 0.975\n\n# Generate samples\nsamples = np.random.normal(mu=0, sigma=1, size=1000)"),
+
+        // ── Machine Learning ───────────────────────────────────
+        new("ML", "Linear Regression",
+            "Predict continuous output from input features.",
+            Formula: "ŷ = β₀ + β₁x₁ + β₂x₂ + ... + βₙxₙ\nCost: J(θ) = (1/2m) Σ(hθ(xᵢ) - yᵢ)²",
+            CodeExample: "from sklearn.linear_model import LinearRegression\n\nmodel = LinearRegression()\nmodel.fit(X_train, y_train)\ny_pred = model.predict(X_test)\n\nprint(f'R² = {model.score(X_test, y_test):.4f}')"),
+
+        new("ML", "Gradient Descent",
+            "Optimization algorithm for minimizing loss.",
+            Formula: "θ = θ - α · ∇J(θ)\nwhere α = learning rate, ∇J = gradient of cost",
+            Tips: ["Too high α → diverge", "Too low α → slow convergence", "Use Adam optimizer for adaptive rates"]),
+
+        new("ML", "Random Forest",
+            "Ensemble of decision trees for classification/regression.",
+            CodeExample: "from sklearn.ensemble import RandomForestClassifier\nfrom sklearn.metrics import accuracy_score\n\nmodel = RandomForestClassifier(n_estimators=100, random_state=42)\nmodel.fit(X_train, y_train)\n\ny_pred = model.predict(X_test)\nprint(f'Accuracy: {accuracy_score(y_test, y_pred):.4f}')\n\n# Feature importance\nimportances = model.feature_importances_"),
+
+        new("ML", "Train/Test Split",
+            "Split data for model validation.",
+            CodeExample: "from sklearn.model_selection import train_test_split\n\nX_train, X_test, y_train, y_test = train_test_split(\n    X, y, test_size=0.2, random_state=42, stratify=y\n)\n\nprint(f'Train: {len(X_train)}, Test: {len(X_test)}')",
+            Tips: ["Use stratify for imbalanced classes", "80/20 or 70/30 are common splits"]),
+
+        new("ML", "Cross-Validation",
+            "Robust model evaluation using k-fold splitting.",
+            CodeExample: "from sklearn.model_selection import cross_val_score\n\nscores = cross_val_score(model, X, y, cv=5, scoring='accuracy')\nprint(f'Mean: {scores.mean():.4f} ± {scores.std():.4f}')"),
+
+        new("ML", "Confusion Matrix",
+            "Evaluate classification performance.",
+            Formula: "Precision = TP / (TP + FP)\nRecall = TP / (TP + FN)\nF1 = 2 · (P × R) / (P + R)\nAccuracy = (TP + TN) / Total",
+            CodeExample: "from sklearn.metrics import confusion_matrix, classification_report\n\ncm = confusion_matrix(y_test, y_pred)\nprint(cm)\nprint(classification_report(y_test, y_pred))"),
+
+        // ── Excel ──────────────────────────────────────────────
+        new("Excel", "VLOOKUP → Pandas merge",
+            "Excel VLOOKUP equivalent in Python.",
+            CodeExample: "# Excel: =VLOOKUP(A2, Sheet2!A:B, 2, FALSE)\n\n# Pandas equivalent:\nresult = pd.merge(df1, df2[['key', 'value']], on='key', how='left')"),
+
+        new("Excel", "INDEX MATCH → loc/iloc",
+            "Excel INDEX MATCH equivalent in Python.",
+            CodeExample: "# Excel: =INDEX(B:B, MATCH(\"Alice\", A:A, 0))\n\n# Pandas equivalent:\nresult = df.loc[df['name'] == 'Alice', 'salary'].values[0]"),
+
+        new("Excel", "SUMIFS → groupby",
+            "Excel SUMIFS equivalent in Python.",
+            CodeExample: "# Excel: =SUMIFS(C:C, A:A, \"Sales\", B:B, \">100\")\n\n# Pandas:\nresult = df[(df['dept'] == 'Sales') & (df['qty'] > 100)]['amount'].sum()"),
+
+        new("Excel", "Pivot Tables → pivot_table",
+            "Excel pivot tables in Python.",
+            CodeExample: "# Pandas pivot table\ndf.pivot_table(\n    values='sales',\n    index='region',\n    columns='quarter',\n    aggfunc='sum',\n    margins=True  # adds totals like Excel\n)"),
+    ];
+
+    private sealed record KnowledgeEntry(
+        string Category,
+        string Title,
+        string Description,
+        string? Formula = null,
+        string? CodeExample = null,
+        List<string>? Tips = null)
+    {
+        public List<string> Tips { get; init; } = Tips ?? [];
+    }
+}

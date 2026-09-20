@@ -1,0 +1,136 @@
+@implements IDisposable
+@inject NavigationManager Navigation
+
+<MudLayout>
+    <!-- Top Navigation Bar -->
+    <MudAppBar Elevation="1" Dense="false">
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="w-100">
+            <!-- Sidebar Toggle Button -->
+            <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="DrawerToggle" />
+
+            <!-- App Logo and Title -->
+            <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                <MudIcon Icon="@Icons.Material.Filled.Science" Size="Size.Large" Color="Color.Primary" />
+                <MudText Typo="TypoStyle.Subtitle2" Class="font-weight-bold">AIMRAN Data Science Lab</MudText>
+            </MudStack>
+
+            <!-- Spacer -->
+            <MudSpacer />
+
+            <!-- Search Bar -->
+            <MudTextField T="string" 
+                         Placeholder="Search..." 
+                         Variant="Variant.Outlined" 
+                         Adornment="Adornment.Start"
+                         AdornmentIcon="@Icons.Material.Filled.Search"
+                         Class="mud-width-full"
+                         Style="max-width: 300px;"
+                         @bind-Value="searchQuery" />
+
+            <!-- Notifications Button -->
+            <MudBadge Content="3" Color="Color.Error" Overlap="true" Bordered="true">
+                <MudIconButton Icon="@Icons.Material.Filled.Notifications" Color="Color.Inherit" />
+            </MudBadge>
+
+            <!-- Theme Toggle -->
+            <MudIconButton Icon="@(isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)" 
+                          Color="Color.Inherit" 
+                          OnClick="ToggleTheme" />
+
+            <!-- User Menu -->
+            <MudMenu AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" LockScroll="true">
+                <ActivatorContent>
+                    <MudAvatar Color="Color.Primary" Style="cursor: pointer;">@userInitials</MudAvatar>
+                </ActivatorContent>
+                <ChildContent>
+                    <MudMenuItem>
+                        <MudText Typo="TypoStyle.Body1">@currentUserName</MudText>
+                    </MudMenuItem>
+                    <MudDivider />
+                    <MudMenuItem Icon="@Icons.Material.Filled.Person" Href="/settings/profile">My Profile</MudMenuItem>
+                    <MudMenuItem Icon="@Icons.Material.Filled.Settings" Href="/settings">Settings</MudMenuItem>
+                    <MudMenuItem Icon="@Icons.Material.Filled.Help" Href="/help">Help & Support</MudMenuItem>
+                    <MudDivider />
+                    <MudMenuItem Icon="@Icons.Material.Filled.Logout" OnClick="Logout">Logout</MudMenuItem>
+                </ChildContent>
+            </MudMenu>
+        </MudStack>
+    </MudAppBar>
+
+    <!-- Sidebar Drawer -->
+    <MudDrawer @bind-Open:get="drawerOpen"
+               @bind-Open:set="@((o) => drawerOpen = o)" 
+               Elevation="1" 
+               Anchor="Anchor.Start">
+        <MudDrawerHeader>
+            <MudText Typo="TypoStyle.Subtitle2" Class="font-weight-bold">Navigation</MudText>
+        </MudDrawerHeader>
+
+        <NavMenuComponent />
+    </MudDrawer>
+
+    <!-- Main Content Area -->
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-8">
+            <!-- Page Content -->
+            <MudStack>
+                @ChildContent
+            </MudStack>
+        </MudContainer>
+    </MudMainContent>
+
+    <!-- Footer -->
+    <MudAppBar Bottom="true" Dense="true" Color="Color.Default" Elevation="2">
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="w-100">
+            <MudText Typo="TypoStyle.Body2" Class="ml-2">© 2024 AIMRAN Data Science Lab. All rights reserved.</MudText>
+            <MudSpacer />
+            <MudText Typo="TypoStyle.Body2">Status: <MudChip T="string" Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Small">Online</MudChip></MudText>
+            <MudText Typo="TypoStyle.Body2" Class="mr-2">v1.0.0</MudText>
+        </MudStack>
+    </MudAppBar>
+</MudLayout>
+
+@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    private bool drawerOpen = true;
+    private bool isDarkMode = false;
+    private string searchQuery = "";
+    private string currentUserName = "User";
+    private string userInitials = "U";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserInfo();
+    }
+
+    private async Task LoadUserInfo()
+    {
+        // TODO: Get user info from auth state when auth is fully setup
+        currentUserName = "User";
+        userInitials = "U";
+        await Task.CompletedTask;
+    }
+
+    private void DrawerToggle()
+    {
+        drawerOpen = !drawerOpen;
+    }
+
+    private void ToggleTheme()
+    {
+        isDarkMode = !isDarkMode;
+    }
+
+    private void Logout()
+    {
+        Navigation.NavigateTo("/logout", forceLoad: true);
+    }
+
+    public void Dispose()
+    {
+        // Cleanup if needed
+    }
+}
+

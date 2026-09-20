@@ -1,0 +1,81 @@
+.knowledge-page { padding: 1.5rem; }
+.page-header h1 { margin: 0; font-size: 1.5rem; }
+.page-header p { margin: 0.25rem 0 0; color: #888; }
+
+.search-bar { margin: 1rem 0; }
+.search-input { width: 100%; background: #1e1e2e; color: #e0e0e0; border: 1px solid #444; border-radius: 8px; padding: 0.6rem 1rem; font-size: 0.95rem; box-sizing: border-box; }
+
+.category-tabs { display: flex; gap: 0.25rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.tab-btn {
+    padding: 0.35rem 0.75rem;
+    border: 1px solid #333;
+    border-radius: 6px;
+    background: #1e1e2e;
+    color: #aaa;
+    cursor: pointer;
+    font-size: 0.82rem;
+    transition: all 0.15s;
+}
+.tab-btn:hover { border-color: #667eea; color: #e0e0e0; }
+.tab-btn.active { background: #667eea; color: #fff; border-color: #667eea; }
+
+.knowledge-content { display: flex; flex-direction: column; gap: 0.75rem; }
+
+.knowledge-card {
+    background: #1e1e2e;
+    border: 1px solid #2a2a3e;
+    border-radius: 10px;
+    overflow: hidden;
+}
+.card-header {
+    padding: 0.75rem 1rem 0.25rem;
+}
+.card-category { font-size: 0.75rem; color: #888; }
+.card-header h3 { margin: 0.25rem 0 0; font-size: 1rem; color: #e0e0e0; }
+
+.card-body { padding: 0 1rem 1rem; }
+.description { font-size: 0.85rem; color: #aaa; margin: 0.25rem 0 0.75rem; }
+
+.formula-block {
+    background: #0d1117;
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.75rem;
+}
+.formula-block code {
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    font-size: 0.9rem;
+    color: #f6ad55;
+    white-space: pre-wrap;
+}
+
+.code-block {
+    background: #0d1117;
+    border: 1px solid #333;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+}
+.code-label {
+    background: #161625;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.7rem;
+    color: #667eea;
+    border-bottom: 1px solid #2a2a3e;
+}
+.code-block pre {
+    margin: 0;
+    padding: 0.75rem 1rem;
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.82rem;
+    color: #c9d1d9;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-x: auto;
+}
+
+.tips { display: flex; flex-direction: column; gap: 0.25rem; }
+.tip { font-size: 0.8rem; color: #4fd1c5; }
+
+.empty-state { text-align: center; padding: 2rem; color: #555; }

@@ -1,0 +1,172 @@
+@page "/security"
+@inject IAuthService AuthService
+@inject AIMRAN_Data_Science_Lab.Services.IAuthorizationService AuthorizationService
+@inject IAuditService AuditService
+@inject ISessionManager SessionManager
+@inject NavigationManager Navigation
+
+<PageTitle>Security - AIMRAN Data Science Lab</PageTitle>
+
+<div class="page-container">
+    <header class="page-header">
+        <div class="header-content">
+            <h1>🛡️ Security Dashboard</h1>
+            <p>Monitor authentication, permissions, and audit logs</p>
+        </div>
+    </header>
+
+    @if (!_authorized)
+    {
+        <div class="empty-state">
+            <div class="empty-icon">🔒</div>
+            <h3>Access Denied</h3>
+            <p>You need Admin privileges to view the security dashboard.</p>
+        </div>
+    }
+    else
+    {
+        <!-- Current User Info -->
+        <section class="security-section">
+            <h2>👤 Current Session</h2>
+            @if (_currentUser is not null)
+            {
+                <div class="info-grid">
+                    <div class="info-card">
+                        <span class="info-label">User</span>
+                        <span class="info-value">@_currentUser.Username</span>
+                    </div>
+                    <div class="info-card">
+                        <span class="info-label">Role</span>
+                        <span class="info-value role-badge">@_currentUser.Role</span>
+                    </div>
+                    <div class="info-card">
+                        <span class="info-label">Session Timeout</span>
+                        <span class="info-value">@SessionManager.Timeout.TotalMinutes min</span>
+                    </div>
+                    <div class="info-card">
+                        <span class="info-label">Permissions</span>
+                        <span class="info-value">@_permissions.Count granted</span>
+                    </div>
+                </div>
+            }
+        </section>
+
+        <!-- Permissions Matrix -->
+        <section class="security-section">
+            <h2>🔑 Role Permissions Matrix</h2>
+            <div class="table-wrapper">
+                <table class="security-table">
+                    <thead>
+                        <tr>
+                            <th>Permission</th>
+                            @foreach (var role in AimranRoles.All)
+                            {
+                                <th>@role</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var perm in Enum.GetValues<AimranPermission>())
+                        {
+                            <tr>
+                                <td>@perm</td>
+                                @foreach (var role in AimranRoles.All)
+                                {
+                                    <td class="perm-cell">
+                                        @(RolePermissions.HasPermission(role, perm) ? "✅" : "—")
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Audit Logs -->
+        <section class="security-section">
+            <h2>📋 Recent Audit Logs</h2>
+            <div class="filter-bar">
+                <button class="btn btn-sm @(_filter == "all" ? "btn-primary" : "btn-secondary")"
+                        @onclick='() => LoadLogsAsync("all")'>All</button>
+                <button class="btn btn-sm @(_filter == "login" ? "btn-primary" : "btn-secondary")"
+                        @onclick='() => LoadLogsAsync("login")'>Login Events</button>
+                <button class="btn btn-sm @(_filter == "execution" ? "btn-primary" : "btn-secondary")"
+                        @onclick='() => LoadLogsAsync("execution")'>Execution</button>
+            </div>
+
+            @if (_auditLogs.Count == 0)
+            {
+                <p class="no-data">No audit log entries found.</p>
+            }
+            else
+            {
+                <div class="table-wrapper">
+                    <table class="security-table">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Action</th>
+                                <th>Detail</th>
+                                <th>User ID</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var log in _auditLogs)
+                            {
+                                <tr class="@GetLogRowClass(log.Action)">
+                                    <td>@log.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                                    <td><span class="action-badge">@log.Action</span></td>
+                                    <td>@(log.Detail ?? "—")</td>
+                                    <td class="user-id">@(log.UserId?.ToString()[..8] ?? "—")…</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    private AimranUser? _currentUser;
+    private IReadOnlySet<AimranPermission> _permissions = new HashSet<AimranPermission>();
+    private IReadOnlyList<AuditLogEntry> _auditLogs = [];
+    private bool _authorized;
+    private string _filter = "all";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _currentUser = await AuthService.GetCurrentUserAsync();
+        if (_currentUser is null)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        _authorized = await AuthorizationService.HasPermissionAsync(AimranPermission.ViewAuditLogs);
+        if (!_authorized) return;
+
+        _permissions = await AuthorizationService.GetCurrentPermissionsAsync();
+        await LoadLogsAsync("all");
+    }
+
+    private async Task LoadLogsAsync(string filter)
+    {
+        _filter = filter;
+        _auditLogs = filter switch
+        {
+            "login" => await AuditService.GetByActionAsync("LoginSuccess", 50),
+            "execution" => await AuditService.GetByActionAsync("ExecutionStart", 50),
+            _ => await AuditService.GetRecentAsync(100)
+        };
+    }
+
+    private static string GetLogRowClass(string action) => action switch
+    {
+        "LoginFailed" or "LoginBlocked" or "ExecutionBlocked" => "log-warning",
+        "ExecutionTimeout" => "log-error",
+        _ => ""
+    };
+}

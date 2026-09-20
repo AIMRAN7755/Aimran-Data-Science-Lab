@@ -1,0 +1,278 @@
+@implements IAsyncDisposable
+@inject NavigationManager Navigation
+@using Microsoft.AspNetCore.SignalR.Client
+
+<div class="live-cursor-container" @ref="containerRef">
+    @foreach (var cursor in OtherCursors.Values)
+    {
+        <div class="cursor-tracker" style="--left: @(cursor.Column * 8)px; --top: @(cursor.Line * 20 + 40)px;">
+            <div class="cursor-position" style="background-color: @cursor.Color;">
+                <div class="cursor-label">@cursor.UserName</div>
+                <div class="cursor-line" style="background-color: @cursor.Color;"></div>
+            </div>
+        </div>
+    }
+
+    <div class="editor-area" @onmousemove="OnMouseMove">
+        @ChildContent
+    </div>
+
+    @if (CurrentSelection != null)
+    {
+        <div class="selection-highlight" 
+             style="--selection-start: @(CurrentSelection.SelectionStart * 8)px; 
+                    --selection-end: @(CurrentSelection.SelectionEnd * 8)px;
+                    --selection-line: @(CurrentSelection.Line * 20 + 40)px;">
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string? ResourceId { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public int UpdateIntervalMs { get; set; } = 200;
+
+    private Dictionary<string, CursorViewModel> OtherCursors { get; set; } = new();
+    private CursorPosition? CurrentSelection { get; set; }
+    private HubConnection? HubConnection;
+    private ElementReference containerRef;
+    private int CurrentLine { get; set; }
+    private int CurrentColumn { get; set; }
+    private DateTime LastSentAt { get; set; } = DateTime.MinValue;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrEmpty(ResourceId))
+            return;
+
+        HubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/collaborationhub"))
+            .WithAutomaticReconnect()
+            .Build();
+
+        // Register event handlers
+        HubConnection.On<dynamic>("CursorMoved", async (data) =>
+        {
+            await UpdateOtherCursor(data);
+            await InvokeAsync(StateHasChanged);
+        });
+
+        HubConnection.On<dynamic>("UserStartedEditing", async (data) =>
+        {
+            if (data.resourceId == ResourceId)
+            {
+                await InvokeAsync(StateHasChanged);
+            }
+        });
+
+        HubConnection.On<dynamic>("UserStoppedEditing", async (data) =>
+        {
+            if (data.resourceId == ResourceId)
+            {
+                OtherCursors.Remove(data.userId);
+                await InvokeAsync(StateHasChanged);
+            }
+        });
+
+        await HubConnection.StartAsync();
+
+        // Start editing this resource
+        if (HubConnection?.State == HubConnectionState.Connected)
+        {
+            await HubConnection.SendAsync("StartEditingResourceAsync", ResourceId);
+        }
+    }
+
+    private async Task OnMouseMove(MouseEventArgs e)
+    {
+        // Calculate line and column from mouse position
+        CurrentColumn = (int)(e.ClientX / 8);
+        CurrentLine = (int)((e.ClientY - 40) / 20);
+
+        // Throttle cursor position updates
+        if ((DateTime.UtcNow - LastSentAt).TotalMilliseconds < UpdateIntervalMs)
+            return;
+
+        LastSentAt = DateTime.UtcNow;
+
+        CurrentSelection = new CursorPosition
+        {
+            Line = CurrentLine,
+            Column = CurrentColumn,
+            SelectionStart = CurrentColumn,
+            SelectionEnd = CurrentColumn + 1,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        if (HubConnection?.State == HubConnectionState.Connected && !string.IsNullOrEmpty(ResourceId))
+        {
+            await HubConnection.SendAsync("UpdateCursorPositionAsync", 
+                ResourceId, CurrentLine, CurrentColumn, CurrentColumn, CurrentColumn + 1);
+        }
+    }
+
+    private async Task UpdateOtherCursor(dynamic data)
+    {
+        var cursorColor = GenerateColorForUser(data.userId);
+
+        OtherCursors[data.userId] = new CursorViewModel
+        {
+            UserId = data.userId,
+            UserName = data.userName,
+            Line = data.line,
+            Column = data.column,
+            Color = cursorColor,
+            SelectionStart = data.selectionStart,
+            SelectionEnd = data.selectionEnd,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        // Auto-remove cursor after 5 seconds of inactivity
+        _ = Task.Delay(5000).ContinueWith(_ =>
+        {
+            if (OtherCursors.TryGetValue(data.userId, out CursorViewModel cursor))
+            {
+                if ((DateTime.UtcNow - cursor.UpdatedAt).TotalSeconds > 5)
+                {
+                    OtherCursors.Remove(data.userId);
+                    InvokeAsync(StateHasChanged);
+                }
+            }
+        });
+    }
+
+    private string GenerateColorForUser(string userId)
+    {
+        var colors = new[] 
+        { 
+            "#FF6B6B", "#4ECDC4", "#45B7D1", "#FFA07A", 
+            "#98D8C8", "#F7DC6F", "#BB8FCE", "#85C1E2" 
+        };
+        var hash = userId.GetHashCode();
+        return colors[Math.Abs(hash) % colors.Length];
+    }
+
+    private class CursorViewModel
+    {
+        public string UserId { get; set; } = string.Empty;
+        public string UserName { get; set; } = string.Empty;
+        public int Line { get; set; }
+        public int Column { get; set; }
+        public int SelectionStart { get; set; }
+        public int SelectionEnd { get; set; }
+        public string Color { get; set; } = "#FF6B6B";
+        public DateTime UpdatedAt { get; set; }
+    }
+
+    async ValueTask IAsyncDisposable.DisposeAsync()
+    {
+        if (HubConnection is not null)
+        {
+            // Stop editing when leaving component
+            if (!string.IsNullOrEmpty(ResourceId))
+            {
+                await HubConnection.SendAsync("StopEditingResourceAsync", ResourceId);
+            }
+            await HubConnection.DisposeAsync();
+        }
+    }
+}
+
+<style scoped>
+.live-cursor-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.editor-area {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 14px;
+    line-height: 20px;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 20px 8px;
+    overflow-y: auto;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.cursor-tracker {
+    position: absolute;
+    left: var(--left, 0px);
+    top: var(--top, 0px);
+    pointer-events: none;
+    z-index: 1000;
+}
+
+.cursor-position {
+    position: relative;
+    width: 2px;
+    height: 20px;
+    animation: blink 1s infinite;
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
+    border-radius: 1px;
+}
+
+.cursor-label {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    white-space: nowrap;
+    background: inherit;
+    color: white;
+    padding: 2px 4px;
+    border-radius: 2px;
+    font-size: 11px;
+    font-weight: 500;
+    margin-bottom: 2px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.cursor-line {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 2px;
+    height: 100%;
+    background: inherit;
+}
+
+.selection-highlight {
+    position: absolute;
+    left: var(--selection-start, 0px);
+    top: var(--selection-line, 0px);
+    width: calc(var(--selection-end, 0px) - var(--selection-start, 0px));
+    height: 20px;
+    background: rgba(74, 144, 226, 0.1);
+    border-left: 2px solid rgba(74, 144, 226, 0.3);
+    pointer-events: none;
+    z-index: 500;
+}
+
+.text-muted {
+    color: #6c757d;
+}
+</style>
+
+<style>
+@@keyframes blink {
+    0%, 49% {
+        opacity: 1;
+    }
+    50%, 100% {
+        opacity: 0.3;
+    }
+}
+</style>
+
+@using AIMRAN_Data_Science_Lab.Domain.Collaboration

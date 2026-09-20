@@ -1,0 +1,13 @@
+[
+  {
+    "user_id": "994a387b-0f91-4e68-bb34-7d087a1c9a1b",
+    "username": "admin",
+    "email": "admin@aimranlab.local",
+    "role": "admin",
+    "is_active": true,
+    "created_at": 1787176870.1340747,
+    "last_seen": null,
+    "api_key_hash": "$2b$12$ntA2as2hF8TZ.qj2yYUbOeM1skFVdM9AnVJd1NqJfHydKwpXE0D/S",
+    "password_hash": "$2b$12$BV7kQBy7N79/WQCGaI69xeLbMm17OaGf7mGq2b06KCAWKNPgyi0fG"
+  }
+]

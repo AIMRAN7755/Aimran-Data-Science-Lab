@@ -1,0 +1,251 @@
+---
+# Kubernetes StatefulSet Template for Stateful AIMRAN Services
+# (e.g., Registry, Broker with persistent state)
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: SERVICE_NAME-headless
+  namespace: aimran
+  labels:
+    app: SERVICE_LABEL
+spec:
+  clusterIP: None
+  selector:
+    app: SERVICE_LABEL
+  ports:
+    - port: 5000
+      targetPort: 5000
+      name: grpc
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: SERVICE_NAME
+  namespace: aimran
+  labels:
+    app: SERVICE_LABEL
+spec:
+  serviceName: SERVICE_NAME-headless
+  replicas: REPLICAS_COUNT
+  selector:
+    matchLabels:
+      app: SERVICE_LABEL
+  template:
+    metadata:
+      labels:
+        app: SERVICE_LABEL
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "5000"
+        prometheus.io/path: "/metrics"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+
+      serviceAccountName: SERVICE_LABEL-sa
+
+      initContainers:
+        - name: init-config
+          image: busybox:1.35
+          command:
+            - sh
+            - -c
+            - |
+              mkdir -p /data
+              chmod 755 /data
+          volumeMounts:
+            - name: data
+              mountPath: /data
+
+      containers:
+        - name: SERVICE_LABEL
+          image: REGISTRY/aimran/SERVICE_IMAGE:VERSION
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - name: grpc
+              containerPort: 5000
+              protocol: TCP
+
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: "Production"
+            - name: ASPNETCORE_URLS
+              value: "http://+:5000"
+            - name: Service__Name
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['app']
+            - name: Service__Instance
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: Service__RegistryUrl
+              value: "http://service-registry:5000"
+            - name: Service__Namespace
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: Service__DataPath
+              value: "/data"
+            - name: Logging__LogLevel__Default
+              value: "Information"
+
+          resources:
+            requests:
+              memory: "MEMORY_REQUEST"
+              cpu: "CPU_REQUEST"
+            limits:
+              memory: "MEMORY_LIMIT"
+              cpu: "CPU_LIMIT"
+
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 5000
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 2
+
+          startupProbe:
+            httpGet:
+              path: /health/startup
+              port: 5000
+            initialDelaySeconds: 0
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 30
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: config
+              mountPath: /etc/config
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+
+      volumes:
+        - name: config
+          configMap:
+            name: SERVICE_LABEL-config
+            defaultMode: 0644
+        - name: tmp
+          emptyDir: {}
+
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - SERVICE_LABEL
+                topologyKey: kubernetes.io/hostname
+
+      terminationGracePeriodSeconds: 60
+
+  # Persistent volume for data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: standard
+        resources:
+          requests:
+            storage: STORAGE_SIZE
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: SERVICE_LABEL-config
+  namespace: aimran
+data:
+  appsettings.json: |
+    {
+      "Logging": {
+        "LogLevel": {
+          "Default": "Information"
+        }
+      },
+      "Service": {
+        "MaxConcurrentRequests": 100,
+        "RequestTimeout": "00:00:30",
+        "PersistenceEnabled": true
+      }
+    }
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: SERVICE_LABEL-sa
+  namespace: aimran
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: SERVICE_LABEL-role
+  namespace: aimran
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps", "persistentvolumeclaims"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: SERVICE_LABEL-rolebinding
+  namespace: aimran
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: SERVICE_LABEL-role
+subjects:
+  - kind: ServiceAccount
+    name: SERVICE_LABEL-sa
+    namespace: aimran
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: SERVICE_LABEL-pdb
+  namespace: aimran
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: SERVICE_LABEL

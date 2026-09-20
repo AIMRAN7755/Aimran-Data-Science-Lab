@@ -1,0 +1,117 @@
+---
+# Network Policy Templates for AIMRAN Services Security
+# Implements network segmentation and traffic control
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: SERVICE_NAME-network-policy
+  namespace: aimran
+  labels:
+    app: SERVICE_LABEL
+spec:
+  # Select pods this policy applies to
+  podSelector:
+    matchLabels:
+      app: SERVICE_LABEL
+  policyTypes:
+    - Ingress
+    - Egress
+
+  # Ingress rules: define what traffic can enter
+  ingress:
+    # Allow from gateway
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: aimran
+          podSelector:
+            matchLabels:
+              app: service-gateway
+        - namespaceSelector:
+            matchLabels:
+              name: aimran
+          podSelector:
+            matchLabels:
+              app: service-registry
+      ports:
+        - protocol: TCP
+          port: 5000
+    # Allow from same namespace services
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: aimran
+      ports:
+        - protocol: TCP
+          port: 5000
+
+  # Egress rules: define what traffic can leave
+  egress:
+    # Allow to registry service
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: aimran
+          podSelector:
+            matchLabels:
+              app: service-registry
+      ports:
+        - protocol: TCP
+          port: 5000
+
+    # Allow to IPC broker
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: aimran
+          podSelector:
+            matchLabels:
+              app: ipc-broker
+      ports:
+        - protocol: TCP
+          port: 5000
+
+    # Allow to monitoring service
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: aimran
+          podSelector:
+            matchLabels:
+              app: monitoring-service
+      ports:
+        - protocol: TCP
+          port: 5000
+
+    # Allow DNS
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+
+    # Allow to external APIs (optional, restrict as needed)
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 80
+
+---
+# Deny all traffic by default (least privilege approach)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-all
+  namespace: aimran
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+Windows 11 Desktop Deployment Profile for AIMRAN Data Science Lab
+Configures self-contained single-file executable publication
+-->
+<Project>
+  <PropertyGroup>
+	<!-- Target Framework and Runtime -->
+	<TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+	<RuntimeIdentifier>win-x64</RuntimeIdentifier>
+
+	<!-- Self-contained deployment - no .NET runtime install needed -->
+	<SelfContained>true</SelfContained>
+	<PublishReadyToRun>true</PublishReadyToRun>
+	<PublishSingleFile>true</PublishSingleFile>
+	<PublishTrimmed>false</PublishTrimmed>
+	<IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+
+	<!-- Compression -->
+	<EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+
+	<!-- Output configuration -->
+	<OutputType>WinExe</OutputType>
+	<UseAppHost>true</UseAppHost>
+  </PropertyGroup>
+</Project>

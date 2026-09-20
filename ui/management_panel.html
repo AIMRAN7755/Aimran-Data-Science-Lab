@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aimran Data Science Lab - Management Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #6366f1;
+            --secondary: #8b5cf6;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --info: #3b82f6;
+            --dark: #1f2937;
+            --light: #f9fafb;
+            --border: #e5e7eb;
+            --text: #111827;
+            --text-light: #6b7280;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--light);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .navbar-brand {
+            font-size: 1.5rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .navbar-nav {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .nav-item {
+            cursor: pointer;
+            padding: 0.5rem 1rem;
+            border-radius: 0.4rem;
+            transition: background 0.3s;
+        }
+
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 0.4rem;
+            font-size: 0.9rem;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .dot.green {
+            background-color: var(--success);
+        }
+
+        .dot.red {
+            background-color: var(--danger);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: white;
+            border-radius: 0.8rem;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--text);
+        }
+
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .metric:last-child {
+            border-bottom: none;
+        }
+
+        .metric-label {
+            color: var(--text-light);
+            font-size: 0.9rem;
+        }
+
+        .metric-value {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .badge-success {
+            background-color: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+        }
+
+        .badge-danger {
+            background-color: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+        }
+
+        .badge-warning {
+            background-color: rgba(245, 158, 11, 0.1);
+            color: var(--warning);
+        }
+
+        .badge-info {
+            background-color: rgba(59, 130, 246, 0.1);
+            color: var(--info);
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 0.4rem;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.3s;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #5558e3;
+            transform: translateY(-1px);
+        }
+
+        .btn-success {
+            background-color: var(--success);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #059669;
+        }
+
+        .btn-danger {
+            background-color: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: #dc2626;
+        }
+
+        .btn-small {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .service-card {
+            border-left: 4px solid var(--primary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .service-info h3 {
+            font-size: 1.1rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .service-meta {
+            font-size: 0.85rem;
+            color: var(--text-light);
+        }
+
+        .service-controls {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 1rem;
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 0.4rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .alert-success {
+            background-color: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+            border-left: 4px solid var(--success);
+        }
+
+        .alert-danger {
+            background-color: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+            border-left: 4px solid var(--danger);
+        }
+
+        .alert-warning {
+            background-color: rgba(245, 158, 11, 0.1);
+            color: var(--warning);
+            border-left: 4px solid var(--warning);
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        .table th {
+            background-color: var(--light);
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .table td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .table tbody tr:hover {
+            background-color: var(--light);
+        }
+
+        .status-bar {
+            display: flex;
+            gap: 0.5rem;
+            margin: 1rem 0;
+            height: 4px;
+            border-radius: 2px;
+            overflow: hidden;
+            background-color: var(--light);
+        }
+
+        .status-segment {
+            height: 100%;
+            transition: flex 0.3s;
+        }
+
+        .status-segment.running {
+            background-color: var(--success);
+        }
+
+        .status-segment.stopped {
+            background-color: var(--danger);
+        }
+
+        .status-segment.error {
+            background-color: var(--warning);
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid var(--border);
+            border-radius: 50%;
+            border-top-color: var(--primary);
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.3s;
+        }
+
+        .modal.open {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.8rem;
+            max-width: 600px;
+            width: 90%;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .modal-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+
+        .close {
+            cursor: pointer;
+            font-size: 1.5rem;
+            color: var(--text-light);
+            transition: color 0.2s;
+        }
+
+        .close:hover {
+            color: var(--text);
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 0.4rem;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-light);
+            border-top: 1px solid var(--border);
+            margin-top: 3rem;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .navbar {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .navbar-nav {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .container {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <div class="navbar">
+        <div class="navbar-brand">
+            ⚙️ Aimran Lab Control Panel
+        </div>
+        <div class="navbar-nav">
+            <div class="nav-item" onclick="showPage('overview')">📊 Overview</div>
+            <div class="nav-item" onclick="showPage('services')">🔧 Services</div>
+            <div class="nav-item" onclick="showPage('health')">❤️ Health</div>
+            <div class="nav-item" onclick="showPage('metrics')">📈 Metrics</div>
+            <div class="status-indicator">
+                <div class="dot green"></div>
+                <span id="status-text">Operational</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Overview Page -->
+        <div id="overview" class="page active">
+            <h1>System Overview</h1>
+
+            <div class="grid">
+                <div class="card">
+                    <div class="card-title">System Status</div>
+                    <div class="metric">
+                        <span class="metric-label">Total Services</span>
+                        <span class="metric-value" id="total-services">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Running</span>
+                        <span class="metric-value" id="running-services">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Stopped</span>
+                        <span class="metric-value" id="stopped-services">-</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">System Resources</div>
+                    <div class="metric">
+                        <span class="metric-label">CPU Usage</span>
+                        <span class="metric-value" id="cpu-usage">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Memory Usage</span>
+                        <span class="metric-value" id="memory-usage">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Disk Usage</span>
+                        <span class="metric-value" id="disk-usage">-</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">Quick Actions</div>
+                    <div class="btn-group">
+                        <button class="btn btn-primary btn-small" onclick="checkHealth()">Check Health</button>
+                        <button class="btn btn-success btn-small" onclick="startAll()">Start All</button>
+                        <button class="btn btn-danger btn-small" onclick="stopAll()">Stop All</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Services Overview</div>
+                <div id="services-overview"></div>
+            </div>
+        </div>
+
+        <!-- Services Page -->
+        <div id="services" class="page">
+            <h1>Service Management</h1>
+
+            <button class="btn btn-primary" onclick="openRegisterModal()">+ Register Service</button>
+
+            <div id="services-list" style="margin-top: 1.5rem;"></div>
+        </div>
+
+        <!-- Health Page -->
+        <div id="health" class="page">
+            <h1>Health Monitoring</h1>
+
+            <div id="health-alerts"></div>
+
+            <div class="card">
+                <div class="card-title">Service Health Status</div>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Service</th>
+                            <th>Status</th>
+                            <th>Health</th>
+                            <th>Last Check</th>
+                        </tr>
+                    </thead>
+                    <tbody id="health-table">
+                        <tr>
+                            <td colspan="4" style="text-align: center; color: var(--text-light);">
+                                <div class="loading" style="display: inline-block;"></div> Loading...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Metrics Page -->
+        <div id="metrics" class="page">
+            <h1>Real-time Metrics</h1>
+
+            <div class="grid">
+                <div class="card">
+                    <div class="card-title">System CPU Usage</div>
+                    <div class="chart-container">
+                        <canvas id="chart-cpu"></canvas>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">System Memory Usage</div>
+                    <div class="chart-container">
+                        <canvas id="chart-memory"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Register Service Modal -->
+    <div id="registerModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title">Register New Service</span>
+                <span class="close" onclick="closeRegisterModal()">&times;</span>
+            </div>
+            <form onsubmit="handleRegisterService(event)">
+                <div class="form-group">
+                    <label class="form-label">Service ID</label>
+                    <input type="text" class="form-control" id="service-id" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Service Name</label>
+                    <input type="text" class="form-control" id="service-name" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Language</label>
+                    <select class="form-control" id="service-language" required>
+                        <option value="">Select language...</option>
+                        <option value="python">Python</option>
+                        <option value="csharp">C#</option>
+                        <option value="rust">Rust</option>
+                        <option value="go">Go</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Host</label>
+                    <input type="text" class="form-control" id="service-host" value="localhost" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Port</label>
+                    <input type="number" class="form-control" id="service-port" value="8000" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Version</label>
+                    <input type="text" class="form-control" id="service-version" value="1.0.0" required>
+                </div>
+                <div class="btn-group">
+                    <button type="submit" class="btn btn-primary">Register</button>
+                    <button type="button" class="btn btn-danger" onclick="closeRegisterModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>Aimran Data Science Lab Management System &copy; 2024 | All services operational</p>
+    </div>
+
+    <script>
+        // Global state
+        let currentPage = 'overview';
+        let chartCPU, chartMemory;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            updateDashboard();
+            setInterval(updateDashboard, 5000);
+        });
+
+        // Page management
+        function showPage(pageName) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(pageName).classList.add('active');
+            currentPage = pageName;
+        }
+
+        // API calls
+        async function apiCall(endpoint, method = 'GET', body = null) {
+            const options = {
+                method,
+                headers: { 'Content-Type': 'application/json' }
+            };
+            if (body) options.body = JSON.stringify(body);
+
+            try {
+                const response = await fetch(`/api${endpoint}`, options);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                return await response.json();
+            } catch (error) {
+                console.error('API Error:', error);
+                return null;
+            }
+        }
+
+        // Update dashboard
+        async function updateDashboard() {
+            const data = await apiCall('/system/overview');
+            if (data && data.overview) {
+                const overview = data.overview;
+
+                // Update metrics
+                document.getElementById('total-services').textContent = overview.total_services || 0;
+                document.getElementById('running-services').textContent = overview.running_services || 0;
+                document.getElementById('stopped-services').textContent = overview.stopped_services || 0;
+
+                const health = overview.system_health || {};
+                document.getElementById('cpu-usage').textContent = (health.cpu || 0).toFixed(1) + '%';
+                document.getElementById('memory-usage').textContent = (health.memory || 0).toFixed(1) + '%';
+                document.getElementById('disk-usage').textContent = (health.disk || 0).toFixed(1) + '%';
+
+                // Update charts
+                if (chartCPU) chartCPU.data.labels.push(new Date().toLocaleTimeString());
+                if (chartCPU) chartCPU.data.datasets[0].data.push(health.cpu || 0);
+                if (chartMemory) chartMemory.data.datasets[0].data.push(health.memory || 0);
+
+                // Render services
+                renderServices(overview.services || []);
+            }
+        }
+
+        // Render services list
+        function renderServices(services) {
+            const container = document.getElementById('services-overview') || document.getElementById('services-list');
+            if (!container) return;
+
+            let html = '';
+            services.forEach(service => {
+                const statusClass = service.status === 'running' ? 'success' : 'danger';
+                const statusBadge = `<span class="badge badge-${statusClass}">${service.status}</span>`;
+
+                html += `
+                    <div class="card service-card" style="margin-bottom: 1rem;">
+                        <div class="service-info">
+                            <h3>${service.name}</h3>
+                            <div class="service-meta">
+                                ${service.language} • v${service.version}
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 1rem; align-items: center;">
+                            ${statusBadge}
+                            <div class="service-controls">
+                                ${service.status === 'running' ? 
+                                    `<button class="btn btn-danger btn-small" onclick="stopService('${service.service_id}')">Stop</button>` : 
+                                    `<button class="btn btn-success btn-small" onclick="startService('${service.service_id}')">Start</button>`
+                                }
+                                <button class="btn btn-primary btn-small" onclick="restartService('${service.service_id}')">Restart</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html || '<p>No services registered</p>';
+        }
+
+        // Service control functions
+        async function startService(serviceId) {
+            const result = await apiCall(`/services/${serviceId}/start`, 'POST');
+            if (result && result.success) {
+                showAlert('success', `Service started successfully`);
+                updateDashboard();
+            }
+        }
+
+        async function stopService(serviceId) {
+            const result = await apiCall(`/services/${serviceId}/stop`, 'POST');
+            if (result && result.success) {
+                showAlert('danger', `Service stopped`);
+                updateDashboard();
+            }
+        }
+
+        async function restartService(serviceId) {
+            const result = await apiCall(`/services/${serviceId}/restart`, 'POST');
+            if (result && result.success) {
+                showAlert('success', `Service restarted`);
+                updateDashboard();
+            }
+        }
+
+        async function startAll() {
+            showAlert('success', 'Starting all services...');
+            updateDashboard();
+        }
+
+        async function stopAll() {
+            showAlert('danger', 'Stopping all services...');
+            updateDashboard();
+        }
+
+        async function checkHealth() {
+            const result = await apiCall('/health/check-all', 'POST');
+            if (result) {
+                showAlert('success', 'Health check completed');
+                updateHealthTable(result.results);
+            }
+        }
+
+        async function updateHealthTable(results) {
+            const tbody = document.getElementById('health-table');
+            let html = '';
+            Object.entries(results).forEach(([serviceId, health]) => {
+                const statusClass = health.healthy ? 'success' : 'danger';
+                html += `
+                    <tr>
+                        <td>${serviceId}</td>
+                        <td><span class="badge badge-${statusClass}">${health.status}</span></td>
+                        <td>${health.healthy ? '✅ Healthy' : '❌ Unhealthy'}</td>
+                        <td>${new Date().toLocaleTimeString()}</td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        // Modal management
+        function openRegisterModal() {
+            document.getElementById('registerModal').classList.add('open');
+        }
+
+        function closeRegisterModal() {
+            document.getElementById('registerModal').classList.remove('open');
+        }
+
+        async function handleRegisterService(event) {
+            event.preventDefault();
+
+            const serviceData = {
+                service_id: document.getElementById('service-id').value,
+                name: document.getElementById('service-name').value,
+                language: document.getElementById('service-language').value,
+                host: document.getElementById('service-host').value,
+                port: parseInt(document.getElementById('service-port').value),
+                version: document.getElementById('service-version').value,
+            };
+
+            const result = await apiCall('/services/register', 'POST', serviceData);
+            if (result && result.success) {
+                showAlert('success', 'Service registered successfully');
+                closeRegisterModal();
+                updateDashboard();
+            }
+        }
+
+        window.onclick = (event) => {
+            const modal = document.getElementById('registerModal');
+            if (event.target === modal) {
+                closeRegisterModal();
+            }
+        };
+
+        // Alert helper
+        function showAlert(type, message) {
+            const alertContainer = document.getElementById('health-alerts') || document.body;
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            if (alertContainer.prepend) alertContainer.prepend(alert);
+
+            setTimeout(() => alert.remove(), 5000);
+        }
+
+        // Charts initialization
+        function initCharts() {
+            const ctxCPU = document.getElementById('chart-cpu');
+            const ctxMemory = document.getElementById('chart-memory');
+
+            if (ctxCPU) {
+                chartCPU = new Chart(ctxCPU, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'CPU %',
+                            data: [],
+                            borderColor: '#6366f1',
+                            backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                            tension: 0.4,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } }
+                    }
+                });
+            }
+
+            if (ctxMemory) {
+                chartMemory = new Chart(ctxMemory, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'Memory %',
+                            data: [],
+                            borderColor: '#8b5cf6',
+                            backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                            tension: 0.4,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } }
+                    }
+                });
+            }
+        }
+    </script>
+</body>
+</html>

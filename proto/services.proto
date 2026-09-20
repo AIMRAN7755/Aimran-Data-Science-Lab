@@ -1,0 +1,204 @@
+syntax = "proto3";
+
+package aimran.services;
+
+// Service definition for cross-language communication
+service ServiceRegistry {
+	// Register a service
+	rpc RegisterService(ServiceInfo) returns (ServiceResponse);
+
+	// Deregister a service
+	rpc DeregisterService(ServiceId) returns (ServiceResponse);
+
+	// Get service info
+	rpc GetService(ServiceId) returns (ServiceInfo);
+
+	// List all services
+	rpc ListServices(Empty) returns (ServiceList);
+
+	// Get service status
+	rpc GetServiceStatus(ServiceId) returns (ServiceStatus);
+
+	// Control service (start/stop/restart)
+	rpc ControlService(ServiceControl) returns (ServiceResponse);
+
+	// Stream service metrics in real-time
+	rpc StreamMetrics(ServiceId) returns (stream ServiceMetrics);
+
+	// Get service logs
+	rpc GetLogs(LogRequest) returns (LogResponse);
+}
+
+// Service definition for inter-service communication
+service ServiceBroker {
+	// Send message to service
+	rpc SendMessage(Message) returns (MessageResponse);
+
+	// Stream messages for subscribed topics
+	rpc Subscribe(SubscriptionRequest) returns (stream Message);
+
+	// Publish message to topic
+	rpc Publish(PublishRequest) returns (MessageResponse);
+
+	// Execute function on service
+	rpc ExecuteFunction(FunctionCall) returns (FunctionResult);
+}
+
+// Message definitions
+
+message Empty {}
+
+message ServiceId {
+	string service_id = 1;
+}
+
+message ServiceInfo {
+	string service_id = 1;
+	string service_name = 2;
+	string language = 3;  // "python", "csharp", "rust"
+	string version = 4;
+	string host = 5;
+	int32 port = 6;
+	string status = 7;    // "running", "stopped", "error"
+	string description = 8;
+	map<string, string> metadata = 9;
+	repeated string capabilities = 10;
+	int64 start_time = 11;
+}
+
+message ServiceResponse {
+	bool success = 1;
+	string message = 2;
+	string error_code = 3;
+}
+
+message ServiceList {
+	repeated ServiceInfo services = 1;
+	int32 total_count = 2;
+}
+
+message ServiceStatus {
+	string service_id = 1;
+	string status = 2;      // "running", "stopped", "error", "restarting"
+	string current_task = 3;
+	double cpu_usage = 4;
+	double memory_usage = 5;
+	int64 uptime_seconds = 6;
+	int32 request_count = 7;
+	double error_rate = 8;
+	string last_error = 9;
+}
+
+message ServiceControl {
+	string service_id = 1;
+	string action = 2;     // "start", "stop", "restart", "reload"
+	map<string, string> parameters = 3;
+}
+
+message ServiceMetrics {
+	string service_id = 1;
+	int64 timestamp = 2;
+	double cpu_percent = 3;
+	double memory_mb = 4;
+	int32 active_connections = 5;
+	int32 requests_per_second = 6;
+	double latency_ms = 7;
+	double error_rate = 8;
+	map<string, double> custom_metrics = 9;
+}
+
+message LogRequest {
+	string service_id = 1;
+	int32 limit = 2;
+	string level = 3;      // "DEBUG", "INFO", "WARNING", "ERROR"
+	int64 since_timestamp = 4;
+}
+
+message LogResponse {
+	repeated LogEntry entries = 1;
+}
+
+message LogEntry {
+	int64 timestamp = 1;
+	string level = 2;
+	string message = 3;
+	map<string, string> context = 4;
+}
+
+message Message {
+	string message_id = 1;
+	string source_service = 2;
+	string target_service = 3;
+	string topic = 4;
+	string payload = 5;     // JSON-encoded
+	int64 timestamp = 6;
+	int32 priority = 7;     // 0-10
+	map<string, string> headers = 8;
+}
+
+message MessageResponse {
+	string message_id = 1;
+	bool delivered = 2;
+	string status = 3;
+	int64 processing_time_ms = 4;
+}
+
+message SubscriptionRequest {
+	string consumer_id = 1;
+	repeated string topics = 2;
+	string filter_expression = 3;
+}
+
+message PublishRequest {
+	string source_service = 1;
+	string topic = 2;
+	string payload = 3;    // JSON
+	int32 priority = 4;
+	int32 ttl_seconds = 5;
+}
+
+message FunctionCall {
+	string source_service = 1;
+	string target_service = 2;
+	string function_name = 3;
+	string arguments = 4;   // JSON-encoded
+	int64 timeout_ms = 5;
+	string callback_topic = 6;
+}
+
+message FunctionResult {
+	string call_id = 1;
+	bool success = 2;
+	string result = 3;      // JSON-encoded
+	string error_message = 4;
+	int64 execution_time_ms = 5;
+}
+
+// Heartbeat for service health checking
+service ServiceHeartbeat {
+	rpc Ping(PingRequest) returns (PingResponse);
+	rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+message PingRequest {
+	string service_id = 1;
+	int64 timestamp = 2;
+}
+
+message PingResponse {
+	string service_id = 1;
+	int64 timestamp = 2;
+	int64 latency_ms = 3;
+	string status = 4;
+}
+
+message HealthCheckRequest {
+	string service_id = 1;
+}
+
+message HealthCheckResponse {
+	bool healthy = 1;
+	string status = 2;
+	string details = 3;
+	repeated string issues = 4;
+}

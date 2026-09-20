@@ -1,0 +1,745 @@
+@page "/data-cleaning"
+@using AIMRAN_Data_Science_Lab.Models.DataCleaning
+@inject IDataCleaningService CleaningService
+@inject IDataProfilingService ProfilingService
+@inject IOutlierDetectionService OutlierService
+@inject ICleaningRuleService RuleService
+@inject IDatasetService DatasetService
+
+<PageTitle>Data Cleaning Studio - DS-Workbench</PageTitle>
+
+<div class="page-container">
+    <header class="page-header">
+        <div class="header-content">
+            <h1>🧹 Data Cleaning Studio</h1>
+            <p>AI-powered data profiling, cleaning, and transformation</p>
+        </div>
+        <div class="header-actions">
+            @if (_selectedDatasetId.HasValue)
+            {
+                <button class="btn btn-secondary" @onclick="ProfileDataset" disabled="@_isProcessing">
+                    <span>📊</span> Profile
+                </button>
+                <button class="btn btn-primary" @onclick="ShowAutoCleanDialog" disabled="@_isProcessing">
+                    <span>✨</span> Auto-Clean
+                </button>
+            }
+        </div>
+    </header>
+
+    <!-- Dataset Selector -->
+    <div class="toolbar">
+        <div class="dataset-selector">
+            <label>Select Dataset:</label>
+            <select @bind="_selectedDatasetId" @bind:after="OnDatasetSelected">
+                <option value="">-- Select a dataset --</option>
+                @foreach (var dataset in _datasets)
+                {
+                    <option value="@dataset.Id">@dataset.Name (@dataset.Format)</option>
+                }
+            </select>
+        </div>
+        @if (_currentProfile != null)
+        {
+            <div class="quality-badge @GetQualityClass(_currentProfile.QualityScore.OverallScore)">
+                <span>Quality Score:</span>
+                <strong>@_currentProfile.QualityScore.OverallScore.ToString("F0")/100</strong>
+                <span class="grade">(@_currentProfile.QualityScore.Grade)</span>
+            </div>
+        }
+    </div>
+
+    @if (_isProcessing)
+    {
+        <div class="processing-overlay">
+            <div class="spinner-large"></div>
+            <p>@_processingMessage</p>
+            @if (_progress != null)
+            {
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: @(_progress.PercentComplete)%"></div>
+                </div>
+                <span>@_progress.CurrentColumnName - @(_progress.PercentComplete.ToString("F0"))%</span>
+            }
+        </div>
+    }
+
+    @if (_currentProfile != null)
+    {
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab @(_activeTab == "overview" ? "active" : "")" @onclick="@(() => _activeTab = "overview")">
+                📋 Overview
+            </button>
+            <button class="tab @(_activeTab == "columns" ? "active" : "")" @onclick="@(() => _activeTab = "columns")">
+                📊 Columns (@_currentProfile.Columns.Count)
+            </button>
+            <button class="tab @(_activeTab == "issues" ? "active" : "")" @onclick="@(() => _activeTab = "issues")">
+                ⚠️ Issues (@_currentProfile.Columns.Sum(c => c.Issues.Count))
+            </button>
+            <button class="tab @(_activeTab == "cleaning" ? "active" : "")" @onclick="@(() => _activeTab = "cleaning")">
+                🧹 Cleaning Operations
+            </button>
+            <button class="tab @(_activeTab == "pipelines" ? "active" : "")" @onclick="@(() => _activeTab = "pipelines")">
+                🔄 Pipelines
+            </button>
+            <button class="tab @(_activeTab == "outliers" ? "active" : "")" @onclick="@(() => _activeTab = "outliers")">
+                📈 Outliers
+            </button>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="tab-content">
+            @if (_activeTab == "overview")
+            {
+                <div class="overview-grid">
+                    <!-- Quality Score Card -->
+                    <div class="card quality-card">
+                        <h3>Data Quality Score</h3>
+                        <div class="quality-circle @GetQualityClass(_currentProfile.QualityScore.OverallScore)">
+                            <span class="score">@_currentProfile.QualityScore.OverallScore.ToString("F0")</span>
+                            <span class="grade">@_currentProfile.QualityScore.Grade</span>
+                        </div>
+                        <div class="quality-breakdown">
+                            <div class="quality-item">
+                                <span>Completeness</span>
+                                <div class="mini-bar"><div style="width: @(_currentProfile.QualityScore.CompletenessScore)%"></div></div>
+                                <span>@_currentProfile.QualityScore.CompletenessScore.ToString("F0")%</span>
+                            </div>
+                            <div class="quality-item">
+                                <span>Accuracy</span>
+                                <div class="mini-bar"><div style="width: @(_currentProfile.QualityScore.AccuracyScore)%"></div></div>
+                                <span>@_currentProfile.QualityScore.AccuracyScore.ToString("F0")%</span>
+                            </div>
+                            <div class="quality-item">
+                                <span>Consistency</span>
+                                <div class="mini-bar"><div style="width: @(_currentProfile.QualityScore.ConsistencyScore)%"></div></div>
+                                <span>@_currentProfile.QualityScore.ConsistencyScore.ToString("F0")%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dataset Info Card -->
+                    <div class="card">
+                        <h3>Dataset Information</h3>
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <span class="label">Rows</span>
+                                <span class="value">@_currentProfile.TotalRows.ToString("N0")</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="label">Columns</span>
+                                <span class="value">@_currentProfile.TotalColumns</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="label">Size</span>
+                                <span class="value">@FormatBytes(_currentProfile.SizeBytes)</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="label">Profiled</span>
+                                <span class="value">@_currentProfile.ProfiledAt.ToString("g")</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Issues Summary Card -->
+                    <div class="card">
+                        <h3>Issues Summary</h3>
+                        @{
+                            var allIssues = _currentProfile.Columns.SelectMany(c => c.Issues).ToList();
+                            var criticalCount = allIssues.Count(i => i.Severity == DataQualitySeverity.Critical);
+                            var errorCount = allIssues.Count(i => i.Severity == DataQualitySeverity.Error);
+                            var warningCount = allIssues.Count(i => i.Severity == DataQualitySeverity.Warning);
+                        }
+                        <div class="issues-summary">
+                            <div class="issue-count critical">
+                                <span class="count">@criticalCount</span>
+                                <span class="label">Critical</span>
+                            </div>
+                            <div class="issue-count error">
+                                <span class="count">@errorCount</span>
+                                <span class="label">Errors</span>
+                            </div>
+                            <div class="issue-count warning">
+                                <span class="count">@warningCount</span>
+                                <span class="label">Warnings</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recommendations Card -->
+                    <div class="card recommendations-card">
+                        <h3>🤖 AI Recommendations</h3>
+                        <div class="recommendations-list">
+                            @foreach (var rec in _currentProfile.Columns.SelectMany(c => c.Recommendations).Take(5))
+                            {
+                                <div class="recommendation-item">
+                                    <div class="rec-header">
+                                        <span class="rec-type">@rec.OperationType</span>
+                                        <span class="rec-confidence">@(rec.ConfidenceScore * 100)% confidence</span>
+                                    </div>
+                                    <p>@rec.Description</p>
+                                    <button class="btn btn-sm btn-apply" @onclick="() => ApplyRecommendation(rec)">
+                                        Apply
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+            else if (_activeTab == "columns")
+            {
+                <div class="columns-table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Column</th>
+                                <th>Type</th>
+                                <th>Missing</th>
+                                <th>Unique</th>
+                                <th>Mean</th>
+                                <th>Std Dev</th>
+                                <th>Quality</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var col in _currentProfile.Columns)
+                            {
+                                <tr>
+                                    <td><strong>@col.Name</strong></td>
+                                    <td><span class="type-badge">@col.DataType</span></td>
+                                    <td class="@(col.MissingPercentage > 10 ? "text-warning" : "")">
+                                        @col.MissingCount (@col.MissingPercentage.ToString("F1")%)
+                                    </td>
+                                    <td>@col.UniqueCount (@col.UniquePercentage.ToString("F1")%)</td>
+                                    <td>@(col.Mean?.ToString("F2") ?? "-")</td>
+                                    <td>@(col.StandardDeviation?.ToString("F2") ?? "-")</td>
+                                    <td>
+                                        <div class="quality-mini @GetQualityClass(col.ColumnQualityScore)">
+                                            @col.ColumnQualityScore.ToString("F0")
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-icon" title="Impute Missing" @onclick="() => ImputeColumn(col.Name)" disabled="@(col.MissingCount == 0)">
+                                            🔧
+                                        </button>
+                                        <button class="btn btn-icon" title="Detect Outliers" @onclick="() => DetectOutliersInColumn(col.Name)">
+                                            📊
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else if (_activeTab == "issues")
+            {
+                <div class="issues-list">
+                    @foreach (var col in _currentProfile.Columns.Where(c => c.Issues.Any()))
+                    {
+                        <div class="column-issues">
+                            <h4>@col.Name</h4>
+                            @foreach (var issue in col.Issues)
+                            {
+                                <div class="issue-item @issue.Severity.ToString().ToLower()">
+                                    <span class="issue-icon">@GetSeverityIcon(issue.Severity)</span>
+                                    <div class="issue-content">
+                                        <span class="issue-type">@issue.Type</span>
+                                        <p>@issue.Description</p>
+                                        <span class="issue-stats">Affects @issue.AffectedCount records (@issue.AffectedPercentage.ToString("F1")%)</span>
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(issue.SuggestedFix))
+                                    {
+                                        <button class="btn btn-sm btn-fix">Fix: @issue.SuggestedFix</button>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+            else if (_activeTab == "cleaning")
+            {
+                <div class="cleaning-operations">
+                    <div class="operation-categories">
+                        <div class="category">
+                            <h4>🔄 Missing Values</h4>
+                            <div class="operation-buttons">
+                                <button class="btn btn-operation" @onclick="() => ExecuteOperation(CleaningOperationType.ImputeMean)">
+                                    Impute Mean
+                                </button>
+                                <button class="btn btn-operation" @onclick="() => ExecuteOperation(CleaningOperationType.ImputeMedian)">
+                                    Impute Median
+                                </button>
+                                <button class="btn btn-operation" @onclick="() => ExecuteOperation(CleaningOperationType.ImputeMode)">
+                                    Impute Mode
+                                </button>
+                                <button class="btn btn-operation" @onclick="() => ExecuteOperation(CleaningOperationType.DropMissingRows)">
+                                    Drop Missing Rows
+                                </button>
+                                <button class="btn btn-operation" @onclick="() => ExecuteOperation(CleaningOperationType.DropMissingColumns)">
+                                    Drop Missing Columns
+                                </button>
+                            </div>
+                        </div>
+                        <div class="category">
+                            <h4>📈 Outliers</h4>
+                            <div class="operation-buttons">
+                                <button class="btn btn-operation" @onclick="DetectAllOutliers">
+                                    Detect Outliers
+                                </button>
+                                <button class="btn btn-operation" @onclick="() => ExecuteOperation(CleaningOperationType.RemoveOutliers)">
+                                    Remove Outliers
+                                </button>
+                                <button class="btn btn-operation" @onclick="() => ExecuteOperation(CleaningOperationType.CapOutliers)">
+                                    Cap Outliers
+                                </button>
+                            </div>
+                        </div>
+                        <div class="category">
+                            <h4>📝 Text & Format</h4>
+                            <div class="operation-buttons">
+                                <button class="btn btn-operation" @onclick="() => ExecuteOperation(CleaningOperationType.TrimWhitespace)">
+                                    Trim Whitespace
+                                </button>
+                                <button class="btn btn-operation" @onclick="() => ExecuteOperation(CleaningOperationType.NormalizeCase)">
+                                    Normalize Case
+                                </button>
+                                <button class="btn btn-operation" @onclick="() => ExecuteOperation(CleaningOperationType.RemoveDuplicates)">
+                                    Remove Duplicates
+                                </button>
+                                <button class="btn btn-operation" @onclick="() => ExecuteOperation(CleaningOperationType.NormalizeDateTime)">
+                                    Normalize Dates
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+            else if (_activeTab == "pipelines")
+            {
+                <div class="pipelines-section">
+                    <div class="pipelines-header">
+                        <h3>Cleaning Pipelines</h3>
+                        <button class="btn btn-primary" @onclick="ShowCreatePipelineDialog">
+                            ➕ Create Pipeline
+                        </button>
+                    </div>
+                    <div class="pipelines-grid">
+                        @foreach (var pipeline in _pipelines)
+                        {
+                            <div class="pipeline-card @(pipeline.IsTemplate ? "template" : "")">
+                                <div class="pipeline-header">
+                                    <h4>@pipeline.Name</h4>
+                                    @if (pipeline.IsTemplate)
+                                    {
+                                        <span class="badge template">Template</span>
+                                    }
+                                    @if (!string.IsNullOrEmpty(pipeline.Industry))
+                                    {
+                                        <span class="badge industry">@pipeline.Industry</span>
+                                    }
+                                </div>
+                                <p>@pipeline.Description</p>
+                                <div class="pipeline-steps">
+                                    <span>@pipeline.Steps.Count steps</span>
+                                    <span class="aggressiveness">@pipeline.Aggressiveness</span>
+                                </div>
+                                <div class="pipeline-actions">
+                                    <button class="btn btn-sm btn-primary" @onclick="() => ExecutePipeline(pipeline)">
+                                        ▶️ Run
+                                    </button>
+                                    <button class="btn btn-sm btn-secondary" @onclick="() => ViewPipelineDetails(pipeline)">
+                                        👁️ View
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+            else if (_activeTab == "outliers")
+            {
+                <div class="outliers-section">
+                    <div class="outliers-controls">
+                        <label>Detection Method:</label>
+                        <select @bind="_selectedOutlierMethod">
+                            <option value="@OutlierDetectionMethod.IQR">IQR (Recommended)</option>
+                            <option value="@OutlierDetectionMethod.ZScore">Z-Score</option>
+                            <option value="@OutlierDetectionMethod.ModifiedZScore">Modified Z-Score</option>
+                            <option value="@OutlierDetectionMethod.IsolationForest">Isolation Forest</option>
+                            <option value="@OutlierDetectionMethod.Ensemble">Ensemble</option>
+                        </select>
+                        <button class="btn btn-primary" @onclick="DetectAllOutliers">
+                            🔍 Detect Outliers
+                        </button>
+                    </div>
+
+                    @if (_outlierResult != null)
+                    {
+                        <div class="outlier-results">
+                            <div class="outlier-summary">
+                                <div class="stat">
+                                    <span class="value">@_outlierResult.TotalOutliersDetected</span>
+                                    <span class="label">Total Outliers</span>
+                                </div>
+                                <div class="stat">
+                                    <span class="value">@_outlierResult.OutlierPercentage.ToString("F1")%</span>
+                                    <span class="label">Outlier Rate</span>
+                                </div>
+                                <div class="stat">
+                                    <span class="value">@_outlierResult.ColumnResults.Count</span>
+                                    <span class="label">Affected Columns</span>
+                                </div>
+                            </div>
+
+                            @foreach (var colResult in _outlierResult.ColumnResults)
+                            {
+                                <div class="outlier-column-card">
+                                    <h4>@colResult.ColumnName</h4>
+                                    <div class="outlier-stats">
+                                        <span>@colResult.OutlierCount outliers (@colResult.OutlierPercentage.ToString("F1")%)</span>
+                                        @if (colResult.Bounds != null)
+                                        {
+                                            <span>Bounds: [@colResult.Bounds.LowerBound.ToString("F2"), @colResult.Bounds.UpperBound.ToString("F2")]</span>
+                                        }
+                                    </div>
+                                    <div class="severity-distribution">
+                                        <span class="mild">Mild: @colResult.SeverityDistribution.Mild</span>
+                                        <span class="moderate">Moderate: @colResult.SeverityDistribution.Moderate</span>
+                                        <span class="severe">Severe: @colResult.SeverityDistribution.Severe</span>
+                                        <span class="extreme">Extreme: @colResult.SeverityDistribution.Extreme</span>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+    else if (!_selectedDatasetId.HasValue)
+    {
+        <div class="empty-state">
+            <div class="empty-icon">📊</div>
+            <h3>Select a Dataset</h3>
+            <p>Choose a dataset from the dropdown above to start profiling and cleaning.</p>
+        </div>
+    }
+</div>
+
+@if (_showAutoCleanDialog)
+{
+    <div class="modal-overlay" @onclick="() => _showAutoCleanDialog = false">
+        <div class="modal" @onclick:stopPropagation="true">
+            <h3>✨ Auto-Clean Settings</h3>
+            <div class="form-group">
+                <label>Cleaning Aggressiveness</label>
+                <div class="aggressiveness-slider">
+                    <input type="range" min="0" max="2" @bind="_autoCleanAggressiveness" />
+                    <div class="slider-labels">
+                        <span class="@(_autoCleanAggressiveness == 0 ? "active" : "")">Conservative</span>
+                        <span class="@(_autoCleanAggressiveness == 1 ? "active" : "")">Balanced</span>
+                        <span class="@(_autoCleanAggressiveness == 2 ? "active" : "")">Aggressive</span>
+                    </div>
+                </div>
+                <p class="help-text">@GetAggressivenessDescription()</p>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" @onclick="() => _showAutoCleanDialog = false">Cancel</button>
+                <button class="btn btn-primary" @onclick="ExecuteAutoClean">Start Auto-Clean</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Dataset> _datasets = [];
+    private Guid? _selectedDatasetId;
+    private DataProfile? _currentProfile;
+    private OutlierDetectionResult? _outlierResult;
+    private List<CleaningPipeline> _pipelines = [];
+
+    private bool _isProcessing;
+    private string _processingMessage = "";
+    private ProfilingProgress? _progress;
+    private PipelineProgress? _pipelineProgress;
+
+    private string _activeTab = "overview";
+    private OutlierDetectionMethod _selectedOutlierMethod = OutlierDetectionMethod.IQR;
+    private int _autoCleanAggressiveness = 1;
+    private bool _showAutoCleanDialog;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _datasets = (await DatasetService.GetAllAsync()).ToList();
+        _pipelines = (await RuleService.GetPipelinesAsync(includeTemplates: true)).ToList();
+    }
+
+    private async Task OnDatasetSelected()
+    {
+        if (_selectedDatasetId.HasValue)
+        {
+            _currentProfile = null;
+            _outlierResult = null;
+            await ProfileDataset();
+        }
+    }
+
+    private async Task ProfileDataset()
+    {
+        if (!_selectedDatasetId.HasValue) return;
+
+        _isProcessing = true;
+        _processingMessage = "Profiling dataset...";
+        StateHasChanged();
+
+        try
+        {
+            var progress = new Progress<ProfilingProgress>(p =>
+            {
+                _progress = p;
+                InvokeAsync(StateHasChanged);
+            });
+
+            _currentProfile = await ProfilingService.ProfileDatasetAsync(
+                _selectedDatasetId.Value,
+                new ProfilingOptions { GenerateRecommendations = true },
+                progress);
+        }
+        finally
+        {
+            _isProcessing = false;
+            _progress = null;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DetectAllOutliers()
+    {
+        if (!_selectedDatasetId.HasValue) return;
+
+        _isProcessing = true;
+        _processingMessage = $"Detecting outliers using {_selectedOutlierMethod}...";
+        StateHasChanged();
+
+        try
+        {
+            _outlierResult = await OutlierService.DetectOutliersAsync(
+                _selectedDatasetId.Value,
+                _selectedOutlierMethod);
+            _activeTab = "outliers";
+        }
+        finally
+        {
+            _isProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DetectOutliersInColumn(string columnName)
+    {
+        if (!_selectedDatasetId.HasValue) return;
+
+        _isProcessing = true;
+        _processingMessage = $"Detecting outliers in {columnName}...";
+        StateHasChanged();
+
+        try
+        {
+            _outlierResult = await OutlierService.DetectOutliersInColumnsAsync(
+                _selectedDatasetId.Value,
+                [columnName],
+                _selectedOutlierMethod);
+            _activeTab = "outliers";
+        }
+        finally
+        {
+            _isProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ImputeColumn(string columnName)
+    {
+        if (!_selectedDatasetId.HasValue) return;
+
+        _isProcessing = true;
+        _processingMessage = $"Imputing missing values in {columnName}...";
+        StateHasChanged();
+
+        try
+        {
+            var recommendations = await CleaningService.GetImputationRecommendationsAsync(_selectedDatasetId.Value);
+            if (recommendations.TryGetValue(columnName, out var rec))
+            {
+                await CleaningService.ImputeMissingValuesAsync(
+                    _selectedDatasetId.Value,
+                    [columnName],
+                    rec.RecommendedStrategy);
+            }
+            await ProfileDataset();
+        }
+        finally
+        {
+            _isProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ExecuteOperation(CleaningOperationType operationType)
+    {
+        if (!_selectedDatasetId.HasValue) return;
+
+        _isProcessing = true;
+        _processingMessage = $"Executing {operationType}...";
+        StateHasChanged();
+
+        try
+        {
+            // Execute based on operation type
+            switch (operationType)
+            {
+                case CleaningOperationType.DropMissingRows:
+                    await CleaningService.DropMissingRowsAsync(_selectedDatasetId.Value);
+                    break;
+                case CleaningOperationType.DropMissingColumns:
+                    await CleaningService.DropMissingColumnsAsync(_selectedDatasetId.Value);
+                    break;
+                case CleaningOperationType.RemoveDuplicates:
+                    await CleaningService.RemoveDuplicatesAsync(_selectedDatasetId.Value);
+                    break;
+            }
+            await ProfileDataset();
+        }
+        finally
+        {
+            _isProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ExecutePipeline(CleaningPipeline pipeline)
+    {
+        if (!_selectedDatasetId.HasValue) return;
+
+        _isProcessing = true;
+        _processingMessage = $"Executing pipeline: {pipeline.Name}...";
+        StateHasChanged();
+
+        try
+        {
+            var progress = new Progress<PipelineProgress>(p =>
+            {
+                _pipelineProgress = p;
+                _processingMessage = $"Step {p.CurrentStep}/{p.TotalSteps}: {p.CurrentStepName}";
+                InvokeAsync(StateHasChanged);
+            });
+
+            await CleaningService.ExecutePipelineAsync(_selectedDatasetId.Value, pipeline, progress);
+            await ProfileDataset();
+        }
+        finally
+        {
+            _isProcessing = false;
+            _pipelineProgress = null;
+            StateHasChanged();
+        }
+    }
+
+    private void ShowAutoCleanDialog()
+    {
+        _showAutoCleanDialog = true;
+    }
+
+    private async Task ExecuteAutoClean()
+    {
+        if (!_selectedDatasetId.HasValue) return;
+
+        _showAutoCleanDialog = false;
+        _isProcessing = true;
+        _processingMessage = "Running auto-clean...";
+        StateHasChanged();
+
+        try
+        {
+            var aggressiveness = _autoCleanAggressiveness switch
+            {
+                0 => CleaningAggressiveness.Conservative,
+                2 => CleaningAggressiveness.Aggressive,
+                _ => CleaningAggressiveness.Balanced
+            };
+
+            var progress = new Progress<PipelineProgress>(p =>
+            {
+                _pipelineProgress = p;
+                _processingMessage = $"Auto-clean: {p.CurrentStepName} ({p.PercentComplete:F0}%)";
+                InvokeAsync(StateHasChanged);
+            });
+
+            await CleaningService.AutoCleanAsync(_selectedDatasetId.Value, aggressiveness, progress);
+            await ProfileDataset();
+        }
+        finally
+        {
+            _isProcessing = false;
+            _pipelineProgress = null;
+            StateHasChanged();
+        }
+    }
+
+    private Task ApplyRecommendation(CleaningRecommendation rec)
+    {
+        return ExecuteOperation(rec.OperationType);
+    }
+
+    private void ShowCreatePipelineDialog()
+    {
+        // TODO: Implement pipeline creation dialog
+    }
+
+    private void ViewPipelineDetails(CleaningPipeline pipeline)
+    {
+        // TODO: Implement pipeline details view
+    }
+
+    private string GetQualityClass(double score) => score switch
+    {
+        >= 90 => "quality-excellent",
+        >= 80 => "quality-good",
+        >= 70 => "quality-fair",
+        >= 60 => "quality-poor",
+        _ => "quality-critical"
+    };
+
+    private string GetSeverityIcon(DataQualitySeverity severity) => severity switch
+    {
+        DataQualitySeverity.Critical => "🔴",
+        DataQualitySeverity.Error => "🟠",
+        DataQualitySeverity.Warning => "🟡",
+        _ => "🔵"
+    };
+
+    private string FormatBytes(long bytes)
+    {
+        string[] sizes = ["B", "KB", "MB", "GB", "TB"];
+        int order = 0;
+        double size = bytes;
+        while (size >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            size /= 1024;
+        }
+        return $"{size:F1} {sizes[order]}";
+    }
+
+    private string GetAggressivenessDescription() => _autoCleanAggressiveness switch
+    {
+        0 => "Conservative: Only applies safe transformations with minimal data loss.",
+        2 => "Aggressive: Applies all recommended cleaning operations for maximum quality improvement.",
+        _ => "Balanced: A good trade-off between data preservation and quality improvement."
+    };
+}

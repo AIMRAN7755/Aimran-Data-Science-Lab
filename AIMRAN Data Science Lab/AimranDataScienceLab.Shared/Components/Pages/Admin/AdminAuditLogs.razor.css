@@ -1,0 +1,66 @@
+.action-tag { display:inline-block; padding:0.12rem 0.45rem; border-radius:4px; font-size:0.75rem; font-family:monospace; }
+.tag-success { background:#4ade8022; color:#4ade80; }
+.tag-warn { background:#fbbf2422; color:#fbbf24; }
+.tag-danger { background:#f8717122; color:#f87171; }
+.tag-admin { background:#7c3aed22; color:#a78bfa; }
+.tag-default { background:#33334422; color:#9ca3af; }
+.row-warn td { color:#fbbf24; }
+.row-danger td { color:#f87171; }
+
+.filter-picker-trigger { min-width: 170px; text-align: left; }
+
+.picker-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(5, 8, 20, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1200;
+}
+
+.picker-modal {
+    width: min(92vw, 320px);
+    background: #151827;
+    border: 1px solid #2b2e44;
+    border-radius: 10px;
+    padding: 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    box-shadow: 0 20px 55px rgba(0, 0, 0, 0.45);
+}
+
+.picker-header {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #c7cbe2;
+    margin-bottom: 0.2rem;
+}
+
+.picker-option {
+    width: 100%;
+    border: 1px solid #323653;
+    border-radius: 8px;
+    background: #1b1f31;
+    color: #d6dcf5;
+    font-size: 0.82rem;
+    text-align: left;
+    padding: 0.5rem 0.65rem;
+    cursor: pointer;
+}
+
+.picker-option:hover {
+    border-color: #4c66e6;
+    background: #222841;
+}
+
+.picker-option.active {
+    border-color: #6f88ff;
+    background: #29335a;
+    color: #ecf0ff;
+}
+
+.picker-cancel {
+    margin-top: 0.35rem;
+}

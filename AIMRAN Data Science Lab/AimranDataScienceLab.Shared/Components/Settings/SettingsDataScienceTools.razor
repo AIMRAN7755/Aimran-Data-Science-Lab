@@ -1,0 +1,156 @@
+<MudStack Spacing="3">
+    <MudText Typo="Typo.H5" Class="font-weight-bold">Data Science Tools Configuration</MudText>
+    <MudText Typo="Typo.Body2" Style="color: var(--mud-palette-text-secondary);">Configure and manage data science tools and integrations</MudText>
+
+    <MudPaper Elevation="0" Class="pa-4" Style="background-color: var(--mud-palette-background-grey);">
+        <MudStack Spacing="3">
+            <!-- Python Configuration -->
+            <MudExpansionPanel Text="Python Configuration" Icon="@Icons.Material.Filled.Code">
+                <MudStack Spacing="2">
+                    <MudTextField Label="Python Path" Value="@pythonPath" ValueChanged="@((string val) => pythonPath = val)" Variant="Variant.Outlined" Placeholder="/usr/bin/python3" />
+                    <MudCheckBox @bind-Value="autoDetectPython" Label="Auto-detect Python version" />
+                    <MudText Typo="Typo.Body2" Style="color: var(--mud-palette-text-secondary);">Current Version: Python 3.11.4</MudText>
+                    <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="TestPythonConnection">Test Connection</MudButton>
+                </MudStack>
+            </MudExpansionPanel>
+
+            <!-- R Configuration -->
+            <MudExpansionPanel Text="R Configuration" Icon="@Icons.Material.Filled.Code">
+                <MudStack Spacing="2">
+                    <MudTextField Label="R Path" Value="@rPath" ValueChanged="@((string val) => rPath = val)" Variant="Variant.Outlined" Placeholder="/usr/bin/R" />
+                    <MudCheckBox @bind-Value="autoDetectR" Label="Auto-detect R version" />
+                    <MudText Typo="Typo.Body2" Style="color: var(--mud-palette-text-secondary);">Current Version: Not installed</MudText>
+                    <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="TestRConnection">Test Connection</MudButton>
+                </MudStack>
+            </MudExpansionPanel>
+
+            <!-- Database Connections -->
+            <MudExpansionPanel Text="Database Connections" Icon="@Icons.Material.Filled.Storage">
+                <MudStack Spacing="2">
+                    <MudText Typo="Typo.Subtitle2" Class="font-weight-bold">Configured Databases</MudText>
+
+                    @foreach (var db in databases)
+                    {
+                        <MudPaper Elevation="0" Class="pa-3" Style="background-color: var(--mud-palette-background);">
+                            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                <MudStack Style="flex: 1;">
+                                        <MudText Typo="Typo.Body2" Class="font-weight-bold">@db</MudText>
+                                </MudStack>
+                                <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="@((e) => EditDatabase(db))">Edit</MudButton>
+                                <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="MudBlazor.Color.Error" OnClick="@((e) => RemoveDatabase(db))">Remove</MudButton>
+                            </MudStack>
+                        </MudPaper>
+                    }
+
+                    <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add" OnClick="AddDatabase">Add Database Connection</MudButton>
+                </MudStack>
+            </MudExpansionPanel>
+
+            <!-- Cloud Services -->
+            <MudExpansionPanel Text="Cloud Services" Icon="@Icons.Material.Filled.Cloud">
+                <MudStack Spacing="2">
+                    <MudText Typo="Typo.Subtitle2" Class="font-weight-bold">Integrated Cloud Platforms</MudText>
+
+                    <MudCheckBox @bind-Value="awsEnabled" Label="Amazon Web Services (AWS)" />
+                    @if (awsEnabled)
+                    {
+                        <MudStack Class="ml-6">
+                            <MudTextField T="string" Label="AWS Access Key" InputType="InputType.Password" Variant="Variant.Outlined" />
+                            <MudTextField T="string" Label="AWS Secret Key" InputType="InputType.Password" Variant="Variant.Outlined" />
+                        </MudStack>
+                    }
+
+                    <MudCheckBox @bind-Value="azureEnabled" Label="Microsoft Azure" />
+                    @if (azureEnabled)
+                    {
+                        <MudStack Class="ml-6">
+                            <MudTextField T="string" Label="Azure Subscription ID" Variant="Variant.Outlined" />
+                            <MudTextField T="string" Label="Azure Resource Group" Variant="Variant.Outlined" />
+                        </MudStack>
+                    }
+
+                    <MudCheckBox @bind-Value="gcpEnabled" Label="Google Cloud Platform (GCP)" />
+                    @if (gcpEnabled)
+                    {
+                        <MudStack Class="ml-6">
+                            <MudTextField T="string" Label="GCP Project ID" Variant="Variant.Outlined" />
+                        </MudStack>
+                    }
+                </MudStack>
+            </MudExpansionPanel>
+
+            <!-- Package Repository -->
+            <MudExpansionPanel Text="Package Repository" Icon="@Icons.Material.Filled.Extension">
+                <MudStack Spacing="2">
+                    <MudCheckBox @bind-Value="usePyPI" Label="PyPI (Python Package Index)" />
+                    <MudCheckBox @bind-Value="useAnaconda" Label="Anaconda Repository" />
+                    <MudCheckBox @bind-Value="useCRAN" Label="CRAN (R Package Repository)" />
+                </MudStack>
+            </MudExpansionPanel>
+
+            <MudDivider />
+
+            <!-- Action Buttons -->
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Filled" Color="MudBlazor.Color.Primary" OnClick="SaveTools">Save Configuration</MudButton>
+                <MudButton Variant="Variant.Outlined" OnClick="ResetTools">Cancel</MudButton>
+            </MudStack>
+        </MudStack>
+    </MudPaper>
+</MudStack>
+
+@code {
+    private string pythonPath = "/usr/bin/python3";
+    private bool autoDetectPython = true;
+    private string rPath = "";
+    private bool autoDetectR = true;
+    private List<string> databases = new() { "PostgreSQL", "MySQL" };
+    private bool awsEnabled = false;
+    private bool azureEnabled = true;
+    private bool gcpEnabled = false;
+    private bool usePyPI = true;
+    private bool useAnaconda = true;
+    private bool useCRAN = false;
+
+    private async Task TestPythonConnection()
+    {
+        // TODO: Implement Python connection test
+        await Task.CompletedTask;
+    }
+
+    private async Task TestRConnection()
+    {
+        // TODO: Implement R connection test
+        await Task.CompletedTask;
+    }
+
+    private async Task EditDatabase(string dbName)
+    {
+        // TODO: Implement database edit logic
+        await Task.CompletedTask;
+    }
+
+    private async Task RemoveDatabase(string dbName)
+    {
+        databases.Remove(dbName);
+        await Task.CompletedTask;
+    }
+
+    private async Task AddDatabase()
+    {
+        // TODO: Implement add database dialog
+        await Task.CompletedTask;
+    }
+
+    private async Task SaveTools()
+    {
+        // TODO: Implement save configuration logic
+        await Task.CompletedTask;
+    }
+
+    private async Task ResetTools()
+    {
+        // TODO: Reset to saved configuration
+        await Task.CompletedTask;
+    }
+}

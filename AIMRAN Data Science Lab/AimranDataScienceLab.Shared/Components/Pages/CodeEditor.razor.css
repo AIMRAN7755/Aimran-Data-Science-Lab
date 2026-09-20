@@ -1,0 +1,256 @@
+/* ══════════════════════════════════════════════════════════════
+   Code Editor — Professional Multi-Language Editor Chrome
+   ══════════════════════════════════════════════════════════════ */
+
+.editor-page {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 70px);
+    padding: 0;
+    background: var(--bg-shell, #0f0f1a);
+}
+
+/* ── Toolbar ─────────────────────────────────────────────────── */
+.editor-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    background: var(--bg-surface, #16162a);
+    border-bottom: 1px solid var(--border, #2a2a44);
+    gap: 0.75rem;
+    min-height: 42px;
+}
+
+.toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.toolbar-right {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.lang-select {
+    background: var(--bg-card, #1c1c32);
+    color: var(--text-primary, #e4e4ef);
+    border: 1px solid var(--border, #2a2a44);
+    border-radius: 6px;
+    padding: 0.35rem 0.6rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.toolbar-divider {
+    width: 1px;
+    height: 18px;
+    background: var(--border, #2a2a44);
+}
+
+.line-count {
+    font-size: 0.72rem;
+    color: var(--text-muted, #5c5c78);
+    font-family: 'Cascadia Code', 'JetBrains Mono', monospace;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────── */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.85rem;
+    border: 1px solid var(--border, #2a2a44);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-primary, #e4e4ef);
+    background: var(--bg-card, #1c1c32);
+    transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.btn:hover {
+    border-color: var(--accent-blue, #667eea);
+}
+
+.btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.btn-run {
+    background: rgba(34,197,94,0.15);
+    border-color: rgba(34,197,94,0.3);
+    color: #4ade80;
+    font-weight: 600;
+}
+
+.btn-run:hover {
+    background: rgba(34,197,94,0.22);
+    border-color: #4ade80;
+    box-shadow: 0 0 10px rgba(34,197,94,0.15);
+}
+
+.btn-run kbd {
+    font-family: 'Cascadia Code', 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    background: rgba(34,197,94,0.15);
+    border: 1px solid rgba(34,197,94,0.2);
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+    color: rgba(74,222,128,0.7);
+}
+
+.btn-secondary {
+    background: var(--bg-elevated, #22223a);
+}
+
+.template-select {
+    background: var(--bg-card, #1c1c32);
+    color: var(--text-secondary, #8888a8);
+    border: 1px solid var(--border, #2a2a44);
+    border-radius: 6px;
+    padding: 0.35rem 0.5rem;
+    font-size: 0.8rem;
+}
+
+/* ── Editor Layout ───────────────────────────────────────────── */
+.editor-layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+.editor-panel,
+.output-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+}
+
+.editor-panel {
+    border-right: 1px solid var(--border, #2a2a44);
+}
+
+.panel-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.3rem 1rem;
+    background: var(--bg-surface, #16162a);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-muted, #5c5c78);
+    border-bottom: 1px solid var(--border, #2a2a44);
+    min-height: 28px;
+}
+
+.panel-label .success { color: #22c55e; }
+.panel-label .error   { color: #ef4444; }
+
+/* ── Code Textarea ───────────────────────────────────────────── */
+.code-textarea {
+    flex: 1;
+    background: #0d0d1a;
+    color: #c9d1d9;
+    border: none;
+    padding: 1rem 1.25rem;
+    font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+    font-size: 0.88rem;
+    line-height: 1.65;
+    resize: none;
+    tab-size: 4;
+    outline: none;
+    white-space: pre;
+    overflow: auto;
+    caret-color: #667eea;
+}
+
+.code-textarea::selection {
+    background: rgba(102,126,234,0.25);
+}
+
+/* ── Output ──────────────────────────────────────────────────── */
+.output-content {
+    flex: 1;
+    overflow: auto;
+    padding: 1rem 1.25rem;
+    background: #0d0d1a;
+}
+
+.output-placeholder {
+    color: var(--text-muted, #5c5c78);
+    padding: 3rem 2rem;
+    text-align: center;
+    font-size: 0.85rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.output-placeholder kbd {
+    font-family: 'Cascadia Code', 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    background: var(--bg-card, #1c1c32);
+    border: 1px solid var(--border, #2a2a44);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+}
+
+.spinner-sm {
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--border, #2a2a44);
+    border-top-color: #667eea;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    display: inline-block;
+}
+
+@@keyframes spin { to { transform: rotate(360deg); } }
+
+pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: 'Cascadia Code', 'JetBrains Mono', 'Consolas', monospace;
+    font-size: 0.84rem;
+    line-height: 1.55;
+}
+
+pre.stdout { color: #c9d1d9; }
+
+pre.stderr {
+    color: #fca5a5;
+    background: rgba(239,68,68,0.08);
+    padding: 0.75rem;
+    border-radius: 6px;
+    border-left: 3px solid #ef4444;
+    margin-top: 0.5rem;
+}
+
+.figure-output {
+    margin-top: 1rem;
+    text-align: center;
+}
+
+.figure-output img {
+    max-width: 100%;
+    border-radius: 10px;
+    border: 1px solid var(--border, #2a2a44);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+
+/* ── Responsive ──────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .editor-layout { flex-direction: column; }
+    .editor-panel { border-right: none; border-bottom: 1px solid var(--border, #2a2a44); }
+    .toolbar-right { flex-wrap: wrap; }
+}

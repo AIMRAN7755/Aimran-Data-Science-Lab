@@ -1,0 +1,255 @@
+@page "/extensions"
+@inject IExtensionManagerService ExtensionManager
+
+<PageTitle>Extensions - AIMRAN Data Science Lab</PageTitle>
+
+<div class="page-container">
+    <header class="page-header">
+        <div class="header-content">
+            <h1>🧩 Extensions</h1>
+            <p>Manage IDE extensions and plugins</p>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-secondary" @onclick="RefreshExtensions" disabled="@_isLoading">
+                <span>🔄</span> Refresh
+            </button>
+        </div>
+    </header>
+
+    @if (_isLoading)
+    {
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Discovering extensions...</p>
+        </div>
+    }
+    else if (!_extensions.Any())
+    {
+        <div class="empty-state">
+            <div class="empty-icon">🧩</div>
+            <h3>No extensions installed</h3>
+            <p>Place extension folders in the <code>extensions/</code> directory.<br />
+            Each extension needs a <code>manifest.json</code> and an entry <code>.dll</code>.</p>
+            <button class="btn btn-secondary" @onclick="RefreshExtensions">Scan for Extensions</button>
+        </div>
+    }
+    else
+    {
+        <!-- Summary Stats -->
+        <div class="ext-stats">
+            <div class="ext-stat">
+                <span class="ext-stat-value">@_extensions.Count</span>
+                <span class="ext-stat-label">Total</span>
+            </div>
+            <div class="ext-stat active">
+                <span class="ext-stat-value">@_extensions.Count(e => e.State == AIMRAN_Data_Science_Lab.Models.Extensions.ExtensionState.Active)</span>
+                <span class="ext-stat-label">Active</span>
+            </div>
+            <div class="ext-stat disabled">
+                <span class="ext-stat-value">@_extensions.Count(e => e.State == AIMRAN_Data_Science_Lab.Models.Extensions.ExtensionState.Disabled)</span>
+                <span class="ext-stat-label">Disabled</span>
+            </div>
+            <div class="ext-stat error">
+                <span class="ext-stat-value">@_extensions.Count(e => e.State == AIMRAN_Data_Science_Lab.Models.Extensions.ExtensionState.Error)</span>
+                <span class="ext-stat-label">Errors</span>
+            </div>
+        </div>
+
+        <!-- Extension Cards -->
+        <div class="ext-grid">
+            @foreach (var ext in _extensions.OrderBy(e => e.Manifest.Name))
+            {
+                <div class="ext-card @ext.State.ToString().ToLowerInvariant()">
+                    <div class="ext-card-header">
+                        <div class="ext-info">
+                            <span class="ext-icon">@GetCategoryIcon(ext.Manifest.Category)</span>
+                            <div>
+                                <h3>@ext.Manifest.Name</h3>
+                                <small>v@(ext.Manifest.Version) · @(ext.Manifest.Author ?? "Unknown author")</small>
+                            </div>
+                        </div>
+                        <span class="ext-state-badge @ext.State.ToString().ToLowerInvariant()">
+                            @GetStateIcon(ext.State) @ext.State
+                        </span>
+                    </div>
+
+                    <p class="ext-description">@(ext.Manifest.Description ?? "No description")</p>
+
+                    <div class="ext-meta">
+                        <span class="ext-category">@ext.Manifest.Category</span>
+                        @if (ext.Manifest.Permissions.Count > 0)
+                        {
+                            <span class="ext-permissions" title="@string.Join(", ", ext.Manifest.Permissions)">
+                                🔐 @ext.Manifest.Permissions.Count permissions
+                            </span>
+                        }
+                        @if (ext.Manifest.Contributions.Commands.Count > 0)
+                        {
+                            <span>⌨️ @ext.Manifest.Contributions.Commands.Count commands</span>
+                        }
+                        @if (ext.ActivatedAt.HasValue)
+                        {
+                            <span>⏱️ Active since @ext.ActivatedAt.Value.ToString("g")</span>
+                        }
+                    </div>
+
+                    @if (ext.State == AIMRAN_Data_Science_Lab.Models.Extensions.ExtensionState.Error && ext.ErrorMessage is not null)
+                    {
+                        <div class="ext-error">
+                            <span>❌ @ext.ErrorMessage</span>
+                        </div>
+                    }
+
+                    <div class="ext-actions">
+                        @if (ext.State == AIMRAN_Data_Science_Lab.Models.Extensions.ExtensionState.Active)
+                        {
+                            <button class="btn btn-sm btn-warning" @onclick="() => DisableExtension(ext.Manifest.Id)" disabled="@_isActioning">
+                                Disable
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-sm btn-success" @onclick="() => EnableExtension(ext.Manifest.Id)" disabled="@_isActioning">
+                                Enable
+                            </button>
+                        }
+                        <button class="btn btn-sm btn-danger" @onclick="() => UninstallExtension(ext.Manifest.Id)" disabled="@_isActioning">
+                            Uninstall
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Registered Commands -->
+        @if (_commands.Count > 0)
+        {
+            <section class="ext-section">
+                <h2>⌨️ Extension Commands</h2>
+                <div class="ext-commands">
+                    @foreach (var cmd in _commands)
+                    {
+                        <button class="cmd-btn" @onclick="() => RunCommand(cmd.Id)">
+                            @(cmd.Icon ?? "▶️") @cmd.Title
+                        </button>
+                    }
+                </div>
+            </section>
+        }
+    }
+
+    @if (!string.IsNullOrEmpty(_statusMessage))
+    {
+        <div class="ext-toast @_statusLevel">
+            <span>@_statusMessage</span>
+            <button class="toast-close" @onclick="() => _statusMessage = null">✕</button>
+        </div>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<AIMRAN_Data_Science_Lab.Models.Extensions.ExtensionInfo> _extensions = [];
+    private IReadOnlyList<AIMRAN_Data_Science_Lab.Extensions.ExtensionCommand> _commands = [];
+    private bool _isLoading = true;
+    private bool _isActioning;
+    private string? _statusMessage;
+    private string _statusLevel = "info";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshExtensions();
+    }
+
+    private async Task RefreshExtensions()
+    {
+        _isLoading = true;
+        StateHasChanged();
+
+        _extensions = await ExtensionManager.DiscoverExtensionsAsync();
+        _commands = ExtensionManager.GetRegisteredCommands();
+        _isLoading = false;
+    }
+
+    private async Task EnableExtension(string id)
+    {
+        _isActioning = true;
+        StateHasChanged();
+
+        var result = await ExtensionManager.EnableExtensionAsync(id);
+        _extensions = ExtensionManager.GetAllExtensions();
+        _commands = ExtensionManager.GetRegisteredCommands();
+
+        if (result.State == AIMRAN_Data_Science_Lab.Models.Extensions.ExtensionState.Active)
+            ShowStatus($"✅ {result.Manifest.Name} activated", "success");
+        else
+            ShowStatus($"❌ Failed to activate {result.Manifest.Name}: {result.ErrorMessage}", "error");
+
+        _isActioning = false;
+    }
+
+    private async Task DisableExtension(string id)
+    {
+        _isActioning = true;
+        StateHasChanged();
+
+        var result = await ExtensionManager.DisableExtensionAsync(id);
+        _extensions = ExtensionManager.GetAllExtensions();
+        _commands = ExtensionManager.GetRegisteredCommands();
+        ShowStatus($"⏸️ {result.Manifest.Name} disabled", "info");
+
+        _isActioning = false;
+    }
+
+    private async Task UninstallExtension(string id)
+    {
+        _isActioning = true;
+        StateHasChanged();
+
+        await ExtensionManager.UninstallExtensionAsync(id);
+        _extensions = ExtensionManager.GetAllExtensions();
+        _commands = ExtensionManager.GetRegisteredCommands();
+        ShowStatus("🗑️ Extension uninstalled", "info");
+
+        _isActioning = false;
+    }
+
+    private async Task RunCommand(string commandId)
+    {
+        try
+        {
+            await ExtensionManager.ExecuteCommandAsync(commandId);
+            ShowStatus($"✅ Command executed: {commandId}", "success");
+        }
+        catch (Exception ex)
+        {
+            ShowStatus($"❌ Command failed: {ex.Message}", "error");
+        }
+    }
+
+    private void ShowStatus(string message, string level)
+    {
+        _statusMessage = message;
+        _statusLevel = level;
+    }
+
+    private static string GetCategoryIcon(AIMRAN_Data_Science_Lab.Models.Extensions.ExtensionCategory category) => category switch
+    {
+        AIMRAN_Data_Science_Lab.Models.Extensions.ExtensionCategory.Language => "🌐",
+        AIMRAN_Data_Science_Lab.Models.Extensions.ExtensionCategory.DataScience => "🔬",
+        AIMRAN_Data_Science_Lab.Models.Extensions.ExtensionCategory.Visualization => "📈",
+        AIMRAN_Data_Science_Lab.Models.Extensions.ExtensionCategory.DataConnector => "🔗",
+        AIMRAN_Data_Science_Lab.Models.Extensions.ExtensionCategory.AI => "🤖",
+        AIMRAN_Data_Science_Lab.Models.Extensions.ExtensionCategory.Tool => "🔧",
+        AIMRAN_Data_Science_Lab.Models.Extensions.ExtensionCategory.Theme => "🎨",
+        _ => "🧩"
+    };
+
+    private static string GetStateIcon(AIMRAN_Data_Science_Lab.Models.Extensions.ExtensionState state) => state switch
+    {
+        AIMRAN_Data_Science_Lab.Models.Extensions.ExtensionState.Active => "●",
+        AIMRAN_Data_Science_Lab.Models.Extensions.ExtensionState.Disabled => "○",
+        AIMRAN_Data_Science_Lab.Models.Extensions.ExtensionState.Loading => "◐",
+        AIMRAN_Data_Science_Lab.Models.Extensions.ExtensionState.Error => "✖",
+        _ => "◌"
+    };
+}

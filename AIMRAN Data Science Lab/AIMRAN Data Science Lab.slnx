@@ -1,0 +1,9 @@
+<Solution>
+  <Project Path="AIMRAN Data Science Lab.csproj" />
+  <Project Path="AimranDataScienceLab.Core/AimranDataScienceLab.Core.csproj" />
+  <Project Path="AimranDataScienceLab.Engine/AimranDataScienceLab.Engine.csproj" />
+  <Project Path="AimranDataScienceLab.Engine.Tests/AimranDataScienceLab.Engine.Tests.csproj" />
+  <Project Path="AimranDataScienceLab.Gateway/AimranDataScienceLab.Gateway.csproj" />
+  <Project Path="AimranDataScienceLab.Shared/AimranDataScienceLab.Shared.csproj" />
+  <Project Path="AimranDataScienceLab.Web/AimranDataScienceLab.Web.csproj" />
+</Solution>

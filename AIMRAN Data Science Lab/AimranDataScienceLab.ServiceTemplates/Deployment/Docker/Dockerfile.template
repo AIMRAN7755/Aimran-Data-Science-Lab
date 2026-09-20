@@ -1,0 +1,45 @@
+# Multi-stage Dockerfile template for AIMRAN Data Science Lab services
+# Supports .NET 10 LTS with optimized layering for Docker and Kubernetes
+
+# Build stage: Compiles the application
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+
+# Copy project files
+COPY ["ServiceProject.csproj", "./"]
+RUN dotnet restore "ServiceProject.csproj"
+
+# Copy source and build
+COPY . .
+RUN dotnet build "ServiceProject.csproj" -c Release -o /app/build
+RUN dotnet publish "ServiceProject.csproj" -c Release -o /app/publish
+
+# Runtime stage: Minimal production image
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
+WORKDIR /app
+
+# Install curl for health checks
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+# Copy published application
+COPY --from=build /app/publish .
+
+# Create non-root user for security
+RUN useradd -m -u 1000 serviceuser && chown -R serviceuser:serviceuser /app
+USER serviceuser
+
+# Expose default gRPC port
+EXPOSE 5000
+
+# Environment variables (can be overridden at runtime)
+ENV DOTNET_EnableDiagnosticTools=false \
+	DOTNET_TieredCompilation=true \
+	DOTNET_TieredCompilationQuickJit=true \
+	DOTNET_TieredCompilationQuickJitForLoops=true
+
+# Health check for Kubernetes and Docker Swarm
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+	CMD curl -f http://localhost:5000/health || exit 1
+
+# Entry point
+ENTRYPOINT ["dotnet", "ServiceProject.dll"]

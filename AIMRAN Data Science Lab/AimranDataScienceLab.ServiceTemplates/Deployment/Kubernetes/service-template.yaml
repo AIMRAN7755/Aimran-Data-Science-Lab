@@ -1,0 +1,336 @@
+---
+# Kubernetes Service Template for AIMRAN Services
+# This template defines a Kubernetes Service for exposing a service endpoint
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: SERVICE_NAME
+  namespace: aimran
+  labels:
+    app: SERVICE_LABEL
+    version: v1
+    component: SERVICE_COMPONENT
+  annotations:
+    description: "SERVICE_NAME exposes SERVICE_LABEL endpoints"
+spec:
+  type: ClusterIP  # Can be changed to LoadBalancer or NodePort
+  ports:
+    - name: grpc
+      port: 5000
+      targetPort: 5000
+      protocol: TCP
+  selector:
+    app: SERVICE_LABEL
+
+---
+# Kubernetes Deployment Template for AIMRAN Services
+# Defines rolling deployment with health checks and resource management
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: SERVICE_NAME
+  namespace: aimran
+  labels:
+    app: SERVICE_LABEL
+    version: v1
+  annotations:
+    description: "AIMRAN SERVICE_LABEL Service"
+spec:
+  replicas: REPLICAS_COUNT
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: SERVICE_LABEL
+  template:
+    metadata:
+      labels:
+        app: SERVICE_LABEL
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "5000"
+        prometheus.io/path: "/metrics"
+    spec:
+      # Security context for pod
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+
+      # Service account
+      serviceAccountName: SERVICE_LABEL-sa
+
+      # Init containers for setup
+      initContainers:
+        - name: wait-for-registry
+          image: busybox:1.35
+          command: ['sh', '-c', "until nc -z service-registry 5000; do echo waiting for registry; sleep 2; done"]
+
+      # Main containers
+      containers:
+        - name: SERVICE_LABEL
+          image: REGISTRY/aimran/SERVICE_IMAGE:VERSION
+          imagePullPolicy: IfNotPresent
+
+          # Port configuration
+          ports:
+            - name: grpc
+              containerPort: 5000
+              protocol: TCP
+
+          # Environment variables
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: "Production"
+            - name: ASPNETCORE_URLS
+              value: "http://+:5000"
+            - name: Service__Name
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['app']
+            - name: Service__Instance
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: Service__RegistryUrl
+              value: "http://service-registry:5000"
+            - name: Service__Namespace
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: Logging__LogLevel__Default
+              value: "Information"
+
+          # Resource requests and limits
+          resources:
+            requests:
+              memory: "MEMORY_REQUEST"
+              cpu: "CPU_REQUEST"
+            limits:
+              memory: "MEMORY_LIMIT"
+              cpu: "CPU_LIMIT"
+
+          # Liveness probe - indicates if container should be restarted
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          # Readiness probe - indicates if container is ready to receive traffic
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 2
+
+          # Startup probe - waits for application to be ready
+          startupProbe:
+            httpGet:
+              path: /health/startup
+              port: 5000
+            initialDelaySeconds: 0
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 30
+
+          # Security context
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+
+          # Volume mounts
+          volumeMounts:
+            - name: config
+              mountPath: /etc/config
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+            - name: logs
+              mountPath: /var/log
+
+      # Volumes
+      volumes:
+        - name: config
+          configMap:
+            name: SERVICE_LABEL-config
+            defaultMode: 0644
+        - name: tmp
+          emptyDir: {}
+        - name: logs
+          emptyDir: {}
+
+      # Affinity rules for pod distribution
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - SERVICE_LABEL
+                topologyKey: kubernetes.io/hostname
+
+      # Termination grace period for graceful shutdown
+      terminationGracePeriodSeconds: 30
+
+---
+# ConfigMap for service configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: SERVICE_LABEL-config
+  namespace: aimran
+data:
+  appsettings.json: |
+    {
+      "Logging": {
+        "LogLevel": {
+          "Default": "Information"
+        }
+      },
+      "Service": {
+        "MaxConcurrentRequests": 100,
+        "RequestTimeout": "00:00:30"
+      }
+    }
+
+---
+# ServiceAccount for RBAC
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: SERVICE_LABEL-sa
+  namespace: aimran
+
+---
+# Role for service permissions
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: SERVICE_LABEL-role
+  namespace: aimran
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list"]
+
+---
+# RoleBinding for service permissions
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: SERVICE_LABEL-rolebinding
+  namespace: aimran
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: SERVICE_LABEL-role
+subjects:
+  - kind: ServiceAccount
+    name: SERVICE_LABEL-sa
+    namespace: aimran
+
+---
+# HorizontalPodAutoscaler for automatic scaling
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: SERVICE_LABEL-hpa
+  namespace: aimran
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: SERVICE_NAME
+  minReplicas: MIN_REPLICAS
+  maxReplicas: MAX_REPLICAS
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 30
+        - type: Pods
+          value: 2
+          periodSeconds: 30
+      selectPolicy: Max
+
+---
+# NetworkPolicy for traffic control
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: SERVICE_LABEL-netpolicy
+  namespace: aimran
+spec:
+  podSelector:
+    matchLabels:
+      app: SERVICE_LABEL
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: aimran
+      ports:
+        - protocol: TCP
+          port: 5000
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: aimran
+      ports:
+        - protocol: TCP
+          port: 5000
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 53  # DNS
+        - protocol: UDP
+          port: 53

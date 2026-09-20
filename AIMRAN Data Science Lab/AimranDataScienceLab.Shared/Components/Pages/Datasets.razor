@@ -1,0 +1,221 @@
+@page "/datasets"
+@inject IDatasetService DatasetService
+@inject IAzureStorageService AzureStorage
+
+<PageTitle>Datasets - DS-Workbench</PageTitle>
+
+<div class="page-container">
+    <header class="page-header">
+        <div class="header-content">
+            <h1>📊 Dataset Manager</h1>
+            <p>Import, manage, and version your datasets</p>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-primary" @onclick="ShowImportDialog">
+                <span>📤</span> Import Dataset
+            </button>
+            @if (_isAzureConfigured)
+            {
+                <button class="btn btn-cloud" @onclick="SyncWithAzure">
+                    <span>☁️</span> Sync to Azure
+                </button>
+            }
+        </div>
+    </header>
+
+    <!-- Search and Filter -->
+    <div class="toolbar">
+        <div class="search-box">
+            <input type="text" placeholder="Search datasets..." @bind="_searchQuery" @bind:event="oninput" />
+        </div>
+        <div class="filter-group">
+            <select @bind="_formatFilter">
+                <option value="">All Formats</option>
+                <option value="Csv">CSV</option>
+                <option value="Parquet">Parquet</option>
+                <option value="Json">JSON</option>
+                <option value="Excel">Excel</option>
+            </select>
+            <select @bind="_locationFilter">
+                <option value="">All Locations</option>
+                <option value="Local">Local</option>
+                <option value="AzureBlob">Azure Blob</option>
+                <option value="Hybrid">Hybrid</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Dataset List -->
+    @if (_isLoading)
+    {
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Loading datasets...</p>
+        </div>
+    }
+    else if (!FilteredDatasets.Any())
+    {
+        <div class="empty-state">
+            <div class="empty-icon">📂</div>
+            <h3>No datasets found</h3>
+            <p>Import your first dataset to get started.</p>
+            <button class="btn btn-primary" @onclick="ShowImportDialog">Import Dataset</button>
+        </div>
+    }
+    else
+    {
+        <div class="dataset-grid">
+            @foreach (var dataset in FilteredDatasets)
+            {
+                <div class="dataset-card">
+                    <div class="dataset-header">
+                        <span class="dataset-icon">@GetFormatIcon(dataset.Format)</span>
+                        <div class="dataset-info">
+                            <h3>@dataset.Name</h3>
+                            <span class="dataset-meta">v@dataset.Version • @FormatSize(dataset.SizeBytes)</span>
+                        </div>
+                        <span class="location-badge @dataset.StorageLocation.ToString().ToLower()">
+                            @(dataset.StorageLocation == DatasetStorageLocation.Local ? "💾" : "☁️")
+                        </span>
+                    </div>
+                    <div class="dataset-body">
+                        <p class="dataset-description">@(dataset.Description ?? "No description")</p>
+                        <div class="dataset-stats">
+                            <span>📋 @dataset.RowCount.ToString("N0") rows</span>
+                            <span>📊 @dataset.ColumnCount columns</span>
+                        </div>
+                    </div>
+                    <div class="dataset-footer">
+                        <span class="created-date">Created @dataset.CreatedAt.ToString("MMM dd, yyyy")</span>
+                        <div class="dataset-actions">
+                            <button class="btn-icon" title="Preview" @onclick="() => PreviewDataset(dataset.Id)">👁️</button>
+                            <button class="btn-icon" title="New Version" @onclick="() => CreateVersion(dataset.Id)">📝</button>
+                            <button class="btn-icon" title="Delete" @onclick="() => DeleteDataset(dataset.Id)">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    <!-- Import Dialog -->
+    @if (_showImportDialog)
+    {
+        <div class="modal-overlay" @onclick="HideImportDialog">
+            <div class="modal-content" @onclick:stopPropagation="true">
+                <h2>Import Dataset</h2>
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" @bind="_newDatasetName" placeholder="My Dataset" />
+                </div>
+                <div class="form-group">
+                    <label>File Path</label>
+                    <input type="text" @bind="_newDatasetPath" placeholder="C:\data\dataset.csv" />
+                </div>
+                <div class="form-group">
+                    <label>Description (optional)</label>
+                    <textarea @bind="_newDatasetDescription" placeholder="Description of your dataset..."></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" @onclick="HideImportDialog">Cancel</button>
+                    <button class="btn btn-primary" @onclick="ImportDataset">Import</button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<Dataset> _datasets = [];
+    private bool _isLoading = true;
+    private bool _isAzureConfigured;
+    private string _searchQuery = "";
+    private string _formatFilter = "";
+    private string _locationFilter = "";
+
+    // Import dialog
+    private bool _showImportDialog;
+    private string _newDatasetName = "";
+    private string _newDatasetPath = "";
+    private string _newDatasetDescription = "";
+
+    private IEnumerable<Dataset> FilteredDatasets => _datasets
+        .Where(d => string.IsNullOrEmpty(_searchQuery) || d.Name.Contains(_searchQuery, StringComparison.OrdinalIgnoreCase))
+        .Where(d => string.IsNullOrEmpty(_formatFilter) || d.Format.ToString() == _formatFilter)
+        .Where(d => string.IsNullOrEmpty(_locationFilter) || d.StorageLocation.ToString() == _locationFilter);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _isLoading = true;
+        _datasets = (await DatasetService.GetAllAsync()).ToList();
+        _isAzureConfigured = await AzureStorage.IsConfiguredAsync();
+        _isLoading = false;
+    }
+
+    private void ShowImportDialog() => _showImportDialog = true;
+    private void HideImportDialog()
+    {
+        _showImportDialog = false;
+        _newDatasetName = "";
+        _newDatasetPath = "";
+        _newDatasetDescription = "";
+    }
+
+    private async Task ImportDataset()
+    {
+        if (string.IsNullOrWhiteSpace(_newDatasetName) || string.IsNullOrWhiteSpace(_newDatasetPath))
+            return;
+
+        await DatasetService.CreateAsync(_newDatasetName, _newDatasetPath, _newDatasetDescription);
+        HideImportDialog();
+        await LoadDataAsync();
+    }
+
+    private async Task PreviewDataset(Guid id)
+    {
+        var preview = await DatasetService.GetPreviewAsync(id);
+        // TODO: Show preview in modal
+    }
+
+    private async Task CreateVersion(Guid id)
+    {
+        // TODO: Show version creation dialog
+        await Task.CompletedTask;
+    }
+
+    private async Task DeleteDataset(Guid id)
+    {
+        await DatasetService.DeleteAsync(id);
+        await LoadDataAsync();
+    }
+
+    private async Task SyncWithAzure()
+    {
+        // TODO: Implement Azure sync
+        await Task.CompletedTask;
+    }
+
+    private static string GetFormatIcon(DatasetFormat format) => format switch
+    {
+        DatasetFormat.Csv => "📄",
+        DatasetFormat.Parquet => "📦",
+        DatasetFormat.Json => "📋",
+        DatasetFormat.Excel => "📊",
+        DatasetFormat.Feather => "🪶",
+        DatasetFormat.Pickle => "🥒",
+        _ => "📁"
+    };
+
+    private static string FormatSize(long bytes) => bytes switch
+    {
+        < 1024 => $"{bytes} B",
+        < 1024 * 1024 => $"{bytes / 1024.0:F1} KB",
+        < 1024 * 1024 * 1024 => $"{bytes / (1024.0 * 1024):F1} MB",
+        _ => $"{bytes / (1024.0 * 1024 * 1024):F2} GB"
+    };
+}

@@ -1,0 +1,142 @@
+.login-page {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+    padding: 1rem;
+}
+
+.login-card {
+    background: #1e1e2e;
+    border: 1px solid #333;
+    border-radius: 16px;
+    padding: 2.5rem;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.login-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+    .login-header h1 {
+        font-size: 2rem;
+        color: #7c3aed;
+        margin: 0;
+    }
+
+    .login-header p {
+        color: #888;
+        margin: 0.25rem 0 0;
+        font-size: 0.9rem;
+    }
+
+.login-error {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #f87171;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    font-size: 0.85rem;
+}
+
+.form-group {
+    margin-bottom: 1.25rem;
+}
+
+    .form-group label {
+        display: block;
+        color: #ccc;
+        font-size: 0.85rem;
+        margin-bottom: 0.4rem;
+        font-weight: 500;
+    }
+
+.form-input {
+    width: 100%;
+    padding: 0.65rem 0.9rem;
+    background: #2a2a3e;
+    border: 1px solid #444;
+    border-radius: 8px;
+    color: #eee;
+    font-size: 0.9rem;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+}
+
+    .form-input:focus {
+        outline: none;
+        border-color: #7c3aed;
+        box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.25);
+    }
+
+.login-btn {
+    width: 100%;
+    padding: 0.75rem;
+    font-size: 1rem;
+    margin-top: 0.5rem;
+    background: #7c3aed;
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+    .login-btn:hover:not(:disabled) {
+        background: #6d28d9;
+    }
+
+    .login-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+.spinner-sm {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top: 2px solid #fff;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    display: inline-block;
+}
+
+@@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.login-toggle {
+    text-align: center;
+    color: #888;
+    font-size: 0.85rem;
+    margin-top: 1.25rem;
+}
+
+    .login-toggle a {
+        color: #7c3aed;
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+        .login-toggle a:hover {
+            text-decoration: underline;
+        }
+
+.login-footer {
+    text-align: center;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid #333;
+    color: #666;
+    font-size: 0.8rem;
+}

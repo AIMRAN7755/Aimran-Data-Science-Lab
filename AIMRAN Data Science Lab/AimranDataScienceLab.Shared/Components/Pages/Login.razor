@@ -1,0 +1,179 @@
+@page "/login"
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Login - AIMRAN Data Science Lab</PageTitle>
+
+<div class="login-page">
+    <div class="login-card">
+        <div class="login-header">
+            <h1>🔬 AIMRAN</h1>
+            <p>Data Science Lab</p>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <div class="login-error">⚠️ @_error</div>
+        }
+
+        @if (_showRegister)
+        {
+            <!-- Register Form -->
+            <EditForm Model="_registerModel" OnValidSubmit="HandleRegister" FormName="register">
+                <div class="form-group">
+                    <label for="reg-username">Username</label>
+                    <InputText id="reg-username" @bind-Value="_registerModel.Username"
+                               placeholder="Choose a username" class="form-input" />
+                </div>
+                <div class="form-group">
+                    <label for="reg-email">Email (optional)</label>
+                    <InputText id="reg-email" @bind-Value="_registerModel.Email"
+                               placeholder="your@email.com" class="form-input" />
+                </div>
+                <div class="form-group">
+                    <label for="reg-password">Password</label>
+                    <InputText id="reg-password" @bind-Value="_registerModel.Password"
+                               type="password" placeholder="Min 8 characters" class="form-input" />
+                </div>
+                <div class="form-group">
+                    <label for="reg-role">Role</label>
+                    <InputSelect id="reg-role" @bind-Value="_registerModel.Role" class="form-input">
+                        @foreach (var role in AimranRoles.All)
+                        {
+                            <option value="@role">@role</option>
+                        }
+                    </InputSelect>
+                </div>
+                <button type="submit" class="btn btn-primary login-btn" disabled="@_isLoading">
+                    @if (_isLoading) { <span class="spinner-sm"></span> }
+                    Create Account
+                </button>
+            </EditForm>
+            <p class="login-toggle">Already have an account?
+                <a href="#" @onclick="ToggleMode" @onclick:preventDefault>Sign in</a>
+            </p>
+        }
+        else
+        {
+            <!-- Login Form -->
+            <EditForm Model="_loginModel" OnValidSubmit="HandleLogin" FormName="login">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <InputText id="username" @bind-Value="_loginModel.Username"
+                               placeholder="Enter username" class="form-input" />
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <InputText id="password" @bind-Value="_loginModel.Password"
+                               type="password" placeholder="Enter password" class="form-input" />
+                </div>
+                <button type="submit" class="btn btn-primary login-btn" disabled="@_isLoading">
+                    @if (_isLoading) { <span class="spinner-sm"></span> }
+                    Sign In
+                </button>
+            </EditForm>
+            <p class="login-toggle">No account yet?
+                <a href="#" @onclick="ToggleMode" @onclick:preventDefault>Create one</a>
+            </p>
+        }
+
+        <div class="login-footer">
+            <span>🔒 Local authentication — works offline</span>
+        </div>
+    </div>
+</div>
+
+@code {
+    private LoginFormModel _loginModel = new();
+    private RegisterFormModel _registerModel = new();
+    private string? _error;
+    private bool _isLoading;
+    private bool _showRegister;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = await AuthService.GetCurrentUserAsync();
+        if (user is not null)
+        {
+            Navigation.NavigateTo("/");
+        }
+    }
+
+    private async Task HandleLogin()
+    {
+        _error = null;
+        _isLoading = true;
+
+        try
+        {
+            var result = await AuthService.LoginAsync(new LoginRequest
+            {
+                Username = _loginModel.Username,
+                Password = _loginModel.Password
+            });
+
+            if (result.Succeeded)
+            {
+                Navigation.NavigateTo("/");
+            }
+            else
+            {
+                _error = result.ErrorMessage;
+            }
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task HandleRegister()
+    {
+        _error = null;
+        _isLoading = true;
+
+        try
+        {
+            var result = await AuthService.RegisterAsync(new RegisterRequest
+            {
+                Username = _registerModel.Username,
+                Password = _registerModel.Password,
+                Email = string.IsNullOrWhiteSpace(_registerModel.Email) ? null : _registerModel.Email,
+                Role = _registerModel.Role
+            });
+
+            if (result.Succeeded)
+            {
+                Navigation.NavigateTo("/");
+            }
+            else
+            {
+                _error = result.ErrorMessage;
+            }
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void ToggleMode()
+    {
+        _showRegister = !_showRegister;
+        _error = null;
+    }
+
+    private sealed class LoginFormModel
+    {
+        public string Username { get; set; } = "";
+        public string Password { get; set; } = "";
+    }
+
+    private sealed class RegisterFormModel
+    {
+        public string Username { get; set; } = "";
+        public string Password { get; set; } = "";
+        public string? Email { get; set; }
+        public string Role { get; set; } = AimranRoles.Viewer;
+    }
+}

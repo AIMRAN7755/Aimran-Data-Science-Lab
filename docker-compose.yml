@@ -1,0 +1,193 @@
+version: '3.8'
+
+services:
+
+  # ── API Service ──────────────────────────────────────────────────────────────
+  api:
+    build: .
+    container_name: aimran-api
+    expose:
+      - "8000"
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://aimran:aimran@postgres:5432/aimran
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=production
+      - ALLOWED_ORIGINS=https://localhost
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./src:/app/src
+      - ./models:/app/models
+      - ./data:/app/data
+      - ./logs:/app/logs
+    networks:
+      - aimran-network
+    restart: unless-stopped
+
+  # ── Celery Worker ────────────────────────────────────────────────────────────
+  worker:
+    build: .
+    container_name: aimran-worker
+    command: celery -A worker worker --loglevel=info
+    depends_on:
+      - redis
+      - postgres
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://aimran:aimran@postgres:5432/aimran
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=production
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./src:/app/src
+      - ./models:/app/models
+      - ./data:/app/data
+      - ./logs:/app/logs
+    networks:
+      - aimran-network
+    restart: unless-stopped
+
+  # ── Streamlit Dashboard ──────────────────────────────────────────────────────
+  dashboard:
+    build: .
+    container_name: aimran-dashboard
+    command: streamlit run ui/dashboard.py --server.port 8501 --server.address 0.0.0.0
+    expose:
+      - "8501"
+    depends_on:
+      - api
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://aimran:aimran@postgres:5432/aimran
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=production
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./src:/app/src
+      - ./ui:/app/ui
+      - ./data:/app/data
+    networks:
+      - aimran-network
+    restart: unless-stopped
+
+  # ── MLflow Tracking Server ───────────────────────────────────────────────────
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:latest
+    container_name: aimran-mlflow
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow_data:/mlflow
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --backend-store-uri sqlite:////mlflow/mlflow.db
+      --default-artifact-root /mlflow/artifacts
+    networks:
+      - aimran-network
+    restart: unless-stopped
+
+  # ── PostgreSQL Database ──────────────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: aimran-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: aimran
+      POSTGRES_PASSWORD: aimran
+      POSTGRES_DB: aimran
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - aimran-network
+    restart: unless-stopped
+
+  # ── Redis Cache / Broker ─────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: aimran-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis_data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - aimran-network
+    restart: unless-stopped
+
+  # ── Prometheus Metrics ───────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: aimran-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks:
+      - aimran-network
+    restart: unless-stopped
+
+  # ── Grafana Dashboards ───────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:latest
+    container_name: aimran-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=aimran123
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - aimran-network
+    restart: unless-stopped
+
+  # ── JupyterLab ───────────────────────────────────────────────────────────────
+  jupyter:
+    build: .
+    container_name: aimran-jupyter
+    command: jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root
+    ports:
+      - "8888:8888"
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./src:/app/src
+      - ./notebooks:/app/notebooks
+      - ./data:/app/data
+      - ./models:/app/models
+    networks:
+      - aimran-network
+    restart: unless-stopped
+
+  # ── Nginx TLS Terminating Reverse Proxy ─────────────────────────────────────
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: aimran-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - api
+      - dashboard
+    networks:
+      - aimran-network
+    restart: unless-stopped
+
+# ── Networks ──────────────────────────────────────────────────────────────────
+networks:
+  aimran-network:
+    driver: bridge
+
+# ── Named Volumes ─────────────────────────────────────────────────────────────
+volumes:
+  postgres_data:
+  redis_data:
+  grafana_data:
+  mlflow_data:

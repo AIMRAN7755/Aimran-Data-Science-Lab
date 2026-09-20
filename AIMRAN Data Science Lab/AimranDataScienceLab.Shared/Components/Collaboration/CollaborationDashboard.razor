@@ -1,0 +1,616 @@
+@using AIMRAN_Data_Science_Lab.Services.Collaboration
+@using AIMRAN_Data_Science_Lab.Services.Notifications
+@using AIMRAN_Data_Science_Lab.Domain.Collaboration
+@inject IPresenceService PresenceService
+@inject ICollaborationService CollaborationService
+@inject IConflictResolutionService ConflictResolutionService
+@inject IRealTimeNotificationService NotificationService
+
+<div class="collaboration-dashboard">
+    <div class="collaboration-header">
+        <h2>
+            <span class="header-icon">🤝</span>
+            Team Collaboration
+        </h2>
+        <div class="header-stats">
+            <div class="stat-badge">
+                <span class="stat-icon">👥</span>
+                <span class="stat-value">@OnlineUserCount</span>
+                <span class="stat-label">Online</span>
+            </div>
+            <div class="stat-badge">
+                <span class="stat-icon">📋</span>
+                <span class="stat-value">@ActivityCount</span>
+                <span class="stat-label">Activities</span>
+            </div>
+            <div class="stat-badge">
+                <span class="stat-icon">💬</span>
+                <span class="stat-value">@CommentCount</span>
+                <span class="stat-label">Comments</span>
+            </div>
+            <div class="stat-badge">
+                <span class="stat-icon">⚠️</span>
+                <span class="stat-value">@ConflictCount</span>
+                <span class="stat-label">Conflicts</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="collaboration-grid">
+        <!-- PRESENCE PANEL -->
+        <div class="panel presence-panel">
+            <h3>
+                <span class="panel-icon">👥</span>
+                Team Members
+            </h3>
+            <div class="panel-content">
+                @if (OnlineUsers.Count == 0)
+                {
+                    <div class="empty-message">No members online</div>
+                }
+                else
+                {
+                    <div class="user-list">
+                        @foreach (var user in OnlineUsers)
+                        {
+                            <div class="user-item">
+                                <div class="user-avatar">@user.UserName.First()</div>
+                                <div class="user-details">
+                                    <div class="user-name">@user.UserName</div>
+                                    <div class="user-activity">
+                                        @if (!string.IsNullOrEmpty(user.CurrentResourceType))
+                                        {
+                                            <small>✏️ Editing @user.CurrentResourceType</small>
+                                        }
+                                        else
+                                        {
+                                            <small>👁️ Viewing</small>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- ACTIVITY FEED PANEL -->
+        <div class="panel activity-panel">
+            <h3>
+                <span class="panel-icon">📋</span>
+                Recent Activity
+            </h3>
+            <div class="panel-content scrollable">
+                @if (RecentActivities.Count == 0)
+                {
+                    <div class="empty-message">No recent activities</div>
+                }
+                else
+                {
+                    @foreach (var activity in RecentActivities.Take(10))
+                    {
+                        <div class="activity-item">
+                            <span class="activity-icon">@GetActivityIcon(activity.ActivityType)</span>
+                            <div class="activity-text">
+                                <span class="activity-user">@activity.UserName</span>
+                                <span class="activity-desc">@activity.Description</span>
+                                <span class="activity-time">@GetTimeAgo(activity.CreatedAt)</span>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+
+        <!-- COMMENTS PANEL -->
+        <div class="panel comments-panel">
+            <h3>
+                <span class="panel-icon">💬</span>
+                Comments
+                @if (UnresolvedComments > 0)
+                {
+                    <span class="unresolved-badge">@UnresolvedComments</span>
+                }
+            </h3>
+            <div class="panel-content scrollable">
+                @if (RecentComments.Count == 0)
+                {
+                    <div class="empty-message">No comments yet</div>
+                }
+                else
+                {
+                    @foreach (var comment in RecentComments.Take(5))
+                    {
+                        <div class="comment-item" style="border-left-color: @(comment.IsResolved ? "#4caf50" : "#ff9800");">
+                            <div class="comment-header">
+                                <span class="comment-author">@comment.AuthorName</span>
+                                <span class="comment-time">@GetTimeAgo(comment.CreatedAt)</span>
+                            </div>
+                            <div class="comment-content">@comment.Content</div>
+                            @if (!comment.IsResolved)
+                            {
+                                <div class="comment-status">Unresolved</div>
+                            }
+                            else
+                            {
+                                <div class="comment-status resolved">✓ Resolved</div>
+                            }
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+
+        <!-- NOTIFICATIONS PANEL -->
+        <div class="panel notifications-panel">
+            <h3>
+                <span class="panel-icon">🔔</span>
+                Notifications
+                @if (UnreadNotifications > 0)
+                {
+                    <span class="unread-badge">@UnreadNotifications</span>
+                }
+            </h3>
+            <div class="panel-content scrollable">
+                @if (RecentNotifications.Count == 0)
+                {
+                    <div class="empty-message">No notifications</div>
+                }
+                else
+                {
+                    @foreach (var notif in RecentNotifications.Take(5))
+                    {
+                        <div class="notification-item @(notif.IsRead ? "read" : "unread")">
+                            <div class="notification-type">@GetNotificationIcon(notif.NotificationType)</div>
+                            <div class="notification-content">
+                                <div class="notification-title">@notif.Title</div>
+                                <div class="notification-message">@notif.Message</div>
+                                <div class="notification-time">@GetTimeAgo(notif.CreatedAt)</div>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- COLLABORATION CONTROLS -->
+    <div class="collaboration-controls">
+        <button class="control-btn refresh-btn" @onclick="RefreshAsync" title="Refresh all data">
+            🔄 Refresh
+        </button>
+        <button class="control-btn clear-btn" @onclick="ClearAllNotificationsAsync" title="Clear all notifications">
+            🗑️ Clear
+        </button>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string? ProjectId { get; set; }
+
+    [Parameter]
+    public string? CurrentUserId { get; set; } = "current-user";
+
+    private List<UserPresence> OnlineUsers { get; set; } = new();
+    private List<ActivityEvent> RecentActivities { get; set; } = new();
+    private List<CollaborativeComment> RecentComments { get; set; } = new();
+    private List<CollaborationNotification> RecentNotifications { get; set; } = new();
+
+    private int OnlineUserCount { get; set; }
+    private int ActivityCount { get; set; }
+    private int CommentCount { get; set; }
+    private int ConflictCount { get; set; }
+    private int UnresolvedComments { get; set; }
+    private int UnreadNotifications { get; set; }
+
+    private Timer? _refreshTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrEmpty(ProjectId))
+            return;
+
+        await RefreshAsync();
+
+        // Auto-refresh every 5 seconds
+        _refreshTimer = new Timer(async _ =>
+        {
+            await RefreshAsync();
+            await InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+    }
+
+    private async Task RefreshAsync()
+    {
+        try
+        {
+            // Refresh online users
+            OnlineUsers = await PresenceService.GetOnlineUsersInProjectAsync(ProjectId ?? "");
+            OnlineUserCount = OnlineUsers.Count;
+
+            // Refresh activity
+            RecentActivities = await CollaborationService.GetProjectActivitiesAsync(ProjectId ?? "", take: 50);
+            ActivityCount = RecentActivities.Count;
+
+            // Refresh comments
+            RecentComments = await CollaborationService.GetCommentsForResourceAsync(ProjectId ?? "");
+            CommentCount = RecentComments.Count;
+            UnresolvedComments = RecentComments.Count(c => !c.IsResolved);
+
+            // Refresh notifications
+            RecentNotifications = await NotificationService.GetUserNotificationsAsync(CurrentUserId ?? "", unreadOnly: false);
+            UnreadNotifications = RecentNotifications.Count(n => !n.IsRead);
+
+            // Get presence stats
+            var stats = await PresenceService.GetPresenceStatisticsAsync(ProjectId ?? "");
+            ConflictCount = stats.EditorsPerResource.Count;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error refreshing collaboration dashboard: {ex.Message}");
+        }
+    }
+
+    private async Task ClearAllNotificationsAsync()
+    {
+        await NotificationService.ClearUserNotificationsAsync(CurrentUserId ?? "");
+        RecentNotifications.Clear();
+        UnreadNotifications = 0;
+    }
+
+    private string GetActivityIcon(string activityType) => activityType switch
+    {
+        "ModelCreated" => "🤖",
+        "DatasetCleaned" => "🧹",
+        "PipelineExecuted" => "⚙️",
+        "CommentAdded" => "💬",
+        "ApprovalRequested" => "✅",
+        _ => "📝"
+    };
+
+    private string GetNotificationIcon(string notificationType) => notificationType switch
+    {
+        "Mention" => "👤",
+        "ApprovalRequest" => "✅",
+        "CommentReply" => "💬",
+        "ResourceUpdate" => "📝",
+        "Alert" => "⚠️",
+        _ => "🔔"
+    };
+
+    private string GetTimeAgo(DateTime dateTime)
+    {
+        var span = DateTime.UtcNow - dateTime;
+        return span.TotalSeconds < 60 ? "just now"
+            : span.TotalMinutes < 60 ? $"{(int)span.TotalMinutes}m"
+            : span.TotalHours < 24 ? $"{(int)span.TotalHours}h"
+            : $"{(int)span.TotalDays}d";
+    }
+
+    public void Dispose()
+    {
+        _refreshTimer?.Dispose();
+    }
+}
+
+<style scoped>
+.collaboration-dashboard {
+    padding: 20px;
+    background: #f5f5f5;
+    border-radius: 8px;
+    min-height: 400px;
+}
+
+.collaboration-header {
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid #e0e0e0;
+}
+
+.collaboration-header h2 {
+    margin: 0 0 12px 0;
+    font-size: 24px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.header-icon {
+    font-size: 28px;
+}
+
+.header-stats {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.stat-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid #e0e0e0;
+    font-size: 12px;
+}
+
+.stat-icon {
+    font-size: 16px;
+}
+
+.stat-value {
+    font-weight: 600;
+    font-size: 14px;
+    color: #007bff;
+}
+
+.stat-label {
+    color: #666;
+}
+
+.collaboration-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.panel {
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.panel h3 {
+    margin: 0;
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    background: #f9f9f9;
+    border-bottom: 1px solid #e0e0e0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.panel-icon {
+    font-size: 16px;
+}
+
+.unresolved-badge,
+.unread-badge {
+    margin-left: auto;
+    display: inline-block;
+    background: #ff9800;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.panel-content {
+    padding: 12px;
+    flex: 1;
+    overflow-y: auto;
+    max-height: 300px;
+}
+
+.panel-content.scrollable {
+    overflow-y: auto;
+}
+
+.empty-message {
+    text-align: center;
+    padding: 40px 20px;
+    color: #999;
+    font-size: 12px;
+}
+
+.user-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.user-item {
+    display: flex;
+    gap: 8px;
+    padding: 8px;
+    border-radius: 4px;
+    background: #f9f9f9;
+    align-items: flex-start;
+}
+
+.user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+
+.user-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.user-name {
+    font-weight: 600;
+    font-size: 12px;
+    color: #333;
+}
+
+.user-activity {
+    font-size: 11px;
+    color: #666;
+    margin-top: 2px;
+}
+
+.activity-item {
+    display: flex;
+    gap: 8px;
+    padding: 8px;
+    margin-bottom: 8px;
+    background: #f9f9f9;
+    border-radius: 4px;
+    border-left: 3px solid #007bff;
+}
+
+.activity-icon {
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.activity-text {
+    flex: 1;
+    font-size: 11px;
+}
+
+.activity-user {
+    font-weight: 600;
+    color: #333;
+}
+
+.activity-desc {
+    display: block;
+    color: #666;
+    margin: 2px 0;
+}
+
+.activity-time {
+    display: block;
+    color: #999;
+    font-size: 10px;
+}
+
+.comment-item {
+    padding: 8px;
+    margin-bottom: 8px;
+    background: #f9f9f9;
+    border-radius: 4px;
+    border-left: 3px solid #ff9800;
+}
+
+.comment-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+    font-size: 11px;
+}
+
+.comment-author {
+    font-weight: 600;
+    color: #333;
+}
+
+.comment-time {
+    color: #999;
+}
+
+.comment-content {
+    font-size: 11px;
+    color: #555;
+    margin-bottom: 4px;
+    line-height: 1.4;
+}
+
+.comment-status {
+    font-size: 10px;
+    color: #ff9800;
+    font-weight: 500;
+}
+
+.comment-status.resolved {
+    color: #4caf50;
+}
+
+.notification-item {
+    padding: 8px;
+    margin-bottom: 8px;
+    background: #f9f9f9;
+    border-radius: 4px;
+    border-left: 3px solid #007bff;
+    display: flex;
+    gap: 8px;
+}
+
+.notification-item.unread {
+    background: #e3f2fd;
+    border-left-color: #1976d2;
+}
+
+.notification-type {
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.notification-content {
+    flex: 1;
+    font-size: 11px;
+}
+
+.notification-title {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 2px;
+}
+
+.notification-message {
+    color: #666;
+    margin-bottom: 2px;
+}
+
+.notification-time {
+    color: #999;
+}
+
+.collaboration-controls {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    padding-top: 12px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.control-btn {
+    padding: 8px 16px;
+    border: 1px solid #e0e0e0;
+    background: white;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.control-btn:hover {
+    background: #f9f9f9;
+    border-color: #ccc;
+}
+
+.control-btn.refresh-btn:hover {
+    background: #e3f2fd;
+}
+
+.control-btn.clear-btn:hover {
+    background: #ffebee;
+}
+</style>
+
+@implements IDisposable

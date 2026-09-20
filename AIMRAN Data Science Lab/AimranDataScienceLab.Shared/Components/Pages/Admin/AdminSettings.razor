@@ -1,0 +1,148 @@
+@page "/admin/settings"
+@layout AdminLayout
+@inject IAdminService AdminService
+@inject IAuditService AuditService
+
+<PageTitle>System Settings - AIMRAN Admin</PageTitle>
+
+<div class="admin-page">
+    <h1 class="admin-title">🔧 System Settings</h1>
+
+    <div class="action-bar">
+        <button class="btn btn-primary" @onclick="ShowAdd">➕ Add Setting</button>
+        <button class="btn btn-outline" @onclick="LoadAsync">🔄 Refresh</button>
+        <button class="btn btn-outline" @onclick="SeedDefaultsAsync">📥 Seed Defaults</button>
+    </div>
+
+    @if (_settings.Count == 0)
+    {
+        <div class="admin-empty">
+            <div class="admin-empty-icon">🔧</div>
+            <p>No system settings configured. Click <strong>Seed Defaults</strong> to populate recommended settings.</p>
+        </div>
+    }
+    else
+    {
+        <div class="table-scroll">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Key</th>
+                        <th>Value</th>
+                        <th>Description</th>
+                        <th>Updated</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var s in _settings)
+                    {
+                        <tr>
+                            <td><code style="color:#a78bfa">@s.Key</code></td>
+                            <td>@s.Value</td>
+                            <td style="color:#888;font-size:0.8rem">@(s.Description ?? "—")</td>
+                            <td>@s.UpdatedAt.ToString("MM-dd HH:mm")</td>
+                            <td>
+                                <button class="btn btn-xs btn-outline" @onclick="() => ShowEdit(s)">📝</button>
+                                <button class="btn btn-xs btn-danger" @onclick="() => DeleteAsync(s.Key)">🗑️</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@* ── Add/Edit Setting Modal ── *@
+@if (_showModal)
+{
+    <div class="admin-modal-overlay" @onclick="CloseModal">
+        <div class="admin-modal" @onclick:stopPropagation>
+            <h3>@(_isEdit ? "📝 Edit Setting" : "➕ Add Setting")</h3>
+            <div class="form-group">
+                <label>Key</label>
+                <input class="form-input" @bind="_editKey" placeholder="e.g. session.timeout.minutes" disabled="@_isEdit" />
+            </div>
+            <div class="form-group">
+                <label>Value</label>
+                <input class="form-input" @bind="_editValue" placeholder="Setting value" />
+            </div>
+            <div class="form-group">
+                <label>Description (optional)</label>
+                <input class="form-input" @bind="_editDescription" placeholder="What this setting controls" />
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-outline" @onclick="CloseModal">Cancel</button>
+                <button class="btn btn-primary" @onclick="SaveAsync">Save</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private IReadOnlyList<SystemSetting> _settings = [];
+    private bool _showModal, _isEdit;
+    private string _editKey = "", _editValue = "", _editDescription = "";
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync() { _settings = await AdminService.GetAllSettingsAsync(); }
+
+    private void ShowAdd() { _isEdit = false; _editKey = ""; _editValue = ""; _editDescription = ""; _showModal = true; }
+
+    private void ShowEdit(SystemSetting s)
+    {
+        _isEdit = true;
+        _editKey = s.Key;
+        _editValue = s.Value;
+        _editDescription = s.Description ?? "";
+        _showModal = true;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_editKey) || string.IsNullOrWhiteSpace(_editValue)) return;
+        await AdminService.SetSettingAsync(_editKey.Trim(), _editValue.Trim(),
+            string.IsNullOrWhiteSpace(_editDescription) ? null : _editDescription.Trim());
+        await AuditService.LogAsync("AdminSetSetting", $"{_editKey}={_editValue}");
+        CloseModal();
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync(string key)
+    {
+        await AdminService.DeleteSettingAsync(key);
+        await AuditService.LogAsync("AdminDeleteSetting", key);
+        await LoadAsync();
+    }
+
+    private async Task SeedDefaultsAsync()
+    {
+        var defaults = new Dictionary<string, (string value, string desc)>
+        {
+            ["session.timeout.minutes"] = ("30", "Session inactivity timeout in minutes"),
+            ["execution.max.duration.minutes"] = ("10", "Max code execution time in minutes"),
+            ["execution.max.memory.mb"] = ("2048", "Max memory per execution in MB"),
+            ["password.min.length"] = ("8", "Minimum password length"),
+            ["login.max.attempts"] = ("5", "Max login attempts before lockout"),
+            ["lockout.duration.minutes"] = ("15", "Account lockout duration in minutes"),
+            ["storage.default.quota.gb"] = ("100", "Default storage quota per user in GB"),
+            ["python.engine.url"] = ("http://localhost:8100", "Python FastAPI engine URL"),
+            ["r.engine.url"] = ("http://localhost:9000", "R Plumber engine URL"),
+            ["rust.engine.url"] = ("http://localhost:8200", "Rust engine URL")
+        };
+
+        foreach (var (key, (value, desc)) in defaults)
+        {
+            var existing = await AdminService.GetSettingAsync(key);
+            if (existing is null)
+                await AdminService.SetSettingAsync(key, value, desc);
+        }
+
+        await AuditService.LogAsync("AdminSeedDefaults", $"Seeded {defaults.Count} default settings");
+        await LoadAsync();
+    }
+
+    private void CloseModal() { _showModal = false; }
+}

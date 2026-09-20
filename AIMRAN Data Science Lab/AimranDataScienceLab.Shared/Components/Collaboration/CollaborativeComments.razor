@@ -1,0 +1,918 @@
+@implements IAsyncDisposable
+@inject NavigationManager Navigation
+@using Microsoft.AspNetCore.SignalR.Client
+
+<div class="collaborative-comments-container">
+    <div class="comments-header">
+        <h4>
+            <span class="comments-icon">💬</span>
+            Comments & Discussion
+            <span class="comment-count badge badge-primary">@TotalComments</span>
+        </h4>
+        <div class="comments-controls">
+            <button class="toggle-btn @(ShowOnlyUnresolved ? "active" : "")" 
+                    @onclick="ToggleUnresolvedFilter"
+                    title="Show only unresolved">
+                ⚠️ Unresolved
+            </button>
+        </div>
+    </div>
+
+    <div class="comments-list" @ref="commentsRef">
+        @if (DisplayedComments.Count == 0)
+        {
+            <div class="empty-state">
+                <p class="text-muted">No comments yet. Be the first to share your thoughts!</p>
+            </div>
+        }
+        else
+        {
+            @foreach (var comment in DisplayedComments)
+            {
+                <div class="comment-item" data-comment-id="@comment.Id">
+                    <div class="comment-header">
+                        <div class="author-info">
+                            <div class="author-avatar">
+                                @comment.AuthorName.First()
+                            </div>
+                            <div class="author-details">
+                                <span class="author-name">@comment.AuthorName</span>
+                                <span class="author-email">@comment.AuthorEmail</span>
+                            </div>
+                        </div>
+                        <div class="comment-meta">
+                            <span class="comment-time" title="@comment.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")">
+                                @GetTimeAgo(comment.CreatedAt)
+                            </span>
+                            @if (comment.IsResolved)
+                            {
+                                <span class="resolved-badge">✓ Resolved</span>
+                            }
+                        </div>
+                    </div>
+
+                    @if (comment.LineNumber.HasValue)
+                    {
+                        <div class="comment-location">
+                            <span class="location-icon">📍</span>
+                            Line @comment.LineNumber
+                        </div>
+                    }
+
+                    <div class="comment-content">
+                        @comment.Content
+                    </div>
+
+                    @if (comment.Reactions.Count > 0)
+                    {
+                        <div class="comment-reactions">
+                            @foreach (var reaction in comment.Reactions)
+                            {
+                                <div class="reaction-chip" title="@string.Join(", ", reaction.Value)">
+                                    <span class="reaction-emoji">@reaction.Key</span>
+                                    <span class="reaction-count">@reaction.Value.Count</span>
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    <div class="comment-actions">
+                        <button class="action-btn reply-btn" @onclick="@(() => ToggleReplyForm(comment.Id))">
+                            <span class="action-icon">↩️</span> Reply
+                        </button>
+                        <button class="action-btn reaction-btn" @onclick="@(() => ShowReactionPicker(comment.Id))">
+                            <span class="action-icon">😊</span> React
+                        </button>
+                        @if (!comment.IsResolved)
+                        {
+                            <button class="action-btn resolve-btn" @onclick="@(() => ResolveCommentAsync(comment.Id))">
+                                <span class="action-icon">✓</span> Resolve
+                            </button>
+                        }
+                    </div>
+
+                    @if (ExpandedReplies.Contains(comment.Id))
+                    {
+                        <div class="replies-section">
+                            @foreach (var reply in comment.Replies)
+                            {
+                                <div class="reply-item">
+                                    <div class="reply-header">
+                                        <span class="reply-author">@reply.AuthorName</span>
+                                        <span class="reply-time">@GetTimeAgo(reply.CreatedAt)</span>
+                                    </div>
+                                    <div class="reply-content">
+                                        @reply.Content
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    @if (ReplyFormVisibleFor == comment.Id)
+                    {
+                        <div class="reply-form">
+                            <textarea class="reply-input" 
+                                      @bind="ReplyContent" 
+                                      placeholder="Write a reply..."
+                                      rows="2"></textarea>
+                            <div class="form-actions">
+                                <button class="btn btn-primary" @onclick="@(() => SubmitReplyAsync(comment.Id))">
+                                    Post Reply
+                                </button>
+                                <button class="btn btn-secondary" @onclick="@(() => CancelReply())">
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        }
+    </div>
+
+    <div class="add-comment-section">
+        <h5>Add Comment</h5>
+        <textarea class="comment-input" 
+                  @bind="NewCommentContent" 
+                  placeholder="Share your thoughts, ask questions, or mention someone..."
+                  rows="3"></textarea>
+
+        <div class="comment-options">
+            <div class="line-number-input">
+                <label>Line Number (optional):</label>
+                <input type="number" 
+                       @bind="NewCommentLineNumber" 
+                       placeholder="Leave blank for general comment"
+                       min="1" />
+            </div>
+
+            <div class="mentions-input">
+                <label>Mention Users:</label>
+                <input type="text" 
+                       @bind="MentionSearchText" 
+                       placeholder="Type to search users..."
+                       @oninput="OnMentionSearch" />
+                @if (AvailableUsers.Count > 0 && !string.IsNullOrEmpty(MentionSearchText))
+                {
+                    <div class="user-suggestions">
+                        @foreach (var user in AvailableUsers)
+                        {
+                            <div class="user-suggestion" @onclick="@(() => SelectMention(user))">
+                                <span class="user-avatar-small">@user.First()</span>
+                                @user
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button class="btn btn-primary" @onclick="SubmitCommentAsync" disabled="@(string.IsNullOrWhiteSpace(NewCommentContent))">
+                Post Comment
+            </button>
+            <button class="btn btn-secondary" @onclick="CancelComment">
+                Cancel
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string? ResourceId { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnCommentAdded { get; set; }
+
+    [Parameter]
+    public List<string> AvailableUsers { get; set; } = new();
+
+    private List<CommentViewModel> DisplayedComments { get; set; } = new();
+    private List<CommentViewModel> AllComments { get; set; } = new();
+    private HubConnection? HubConnection;
+    private ElementReference commentsRef;
+
+    private string NewCommentContent { get; set; } = "";
+    private int? NewCommentLineNumber { get; set; }
+    private string MentionSearchText { get; set; } = "";
+    private List<string> MentionedUsers { get; set; } = new();
+    private List<string> FilteredUsers { get; set; } = new();
+
+    private string ReplyContent { get; set; } = "";
+    private string? ReplyFormVisibleFor { get; set; }
+    private List<string> ExpandedReplies { get; set; } = new();
+
+    private bool ShowOnlyUnresolved { get; set; }
+    private int TotalComments { get; set; }
+    private string CurrentUserId { get; set; } = "current-user";
+    private string CurrentUserName { get; set; } = "You";
+    private string CurrentUserEmail { get; set; } = "user@example.com";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrEmpty(ResourceId))
+            return;
+
+        HubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/collaborationhub"))
+            .WithAutomaticReconnect()
+            .Build();
+
+        // Register event handlers
+        HubConnection.On<dynamic>("CommentAdded", async (comment) =>
+        {
+            await AddCommentToList(comment);
+            await InvokeAsync(StateHasChanged);
+            await ScrollToBottom();
+        });
+
+        HubConnection.On<dynamic>("CommentReplyAdded", async (reply) =>
+        {
+            await AddReplyToComment(reply);
+            await InvokeAsync(StateHasChanged);
+        });
+
+        HubConnection.On<dynamic>("CommentResolved", async (data) =>
+        {
+            await MarkCommentResolved(data.commentId);
+            await InvokeAsync(StateHasChanged);
+        });
+
+        HubConnection.On<dynamic>("ReactionAdded", async (data) =>
+        {
+            await AddReactionToComment(data.commentId, data.userId, data.reaction);
+            await InvokeAsync(StateHasChanged);
+        });
+
+        await HubConnection.StartAsync();
+        RefreshCommentDisplay();
+    }
+
+    private async Task AddCommentToList(dynamic comment)
+    {
+        var commentItem = new CommentViewModel
+        {
+            Id = comment.commentId,
+            AuthorName = comment.userName,
+            AuthorEmail = "author@example.com",
+            Content = comment.content,
+            ResourceId = comment.resourceId ?? "",
+            LineNumber = comment.lineNumber,
+            CreatedAt = comment.timestamp ?? DateTime.UtcNow
+        };
+
+        AllComments.Insert(0, commentItem);
+        TotalComments = AllComments.Count;
+        RefreshCommentDisplay();
+    }
+
+    private async Task AddReplyToComment(dynamic reply)
+    {
+        var parentId = reply.parentCommentId;
+        var parent = AllComments.FirstOrDefault(c => c.Id == parentId);
+        if (parent != null)
+        {
+            var replyItem = new CommentViewModel
+            {
+                Id = reply.replyId,
+                AuthorName = reply.userName,
+                AuthorEmail = "author@example.com",
+                Content = reply.content,
+                CreatedAt = reply.timestamp ?? DateTime.UtcNow
+            };
+
+            parent.Replies.Add(replyItem);
+            if (!ExpandedReplies.Contains(parentId))
+            {
+                ExpandedReplies.Add(parentId);
+            }
+        }
+    }
+
+    private async Task MarkCommentResolved(string commentId)
+    {
+        var comment = AllComments.FirstOrDefault(c => c.Id == commentId);
+        if (comment != null)
+        {
+            comment.IsResolved = true;
+            comment.ResolvedAt = DateTime.UtcNow;
+        }
+        RefreshCommentDisplay();
+    }
+
+    private async Task AddReactionToComment(string commentId, string userId, string reaction)
+    {
+        var comment = AllComments.FirstOrDefault(c => c.Id == commentId);
+        if (comment != null)
+        {
+            if (!comment.Reactions.ContainsKey(reaction))
+            {
+                comment.Reactions[reaction] = new();
+            }
+            if (!comment.Reactions[reaction].Contains(userId))
+            {
+                comment.Reactions[reaction].Add(userId);
+            }
+        }
+    }
+
+    private async Task SubmitCommentAsync()
+    {
+        if (string.IsNullOrWhiteSpace(NewCommentContent) || string.IsNullOrEmpty(ResourceId))
+            return;
+
+        try
+        {
+            if (HubConnection?.State == HubConnectionState.Connected)
+            {
+                await HubConnection.SendAsync("AddCommentAsync",
+                    CurrentUserId,
+                    CurrentUserName,
+                    CurrentUserEmail,
+                    NewCommentContent,
+                    ResourceId,
+                    "Resource",
+                    "project-id", // Would get from context
+                    MentionedUsers,
+                    NewCommentLineNumber);
+
+                await OnCommentAdded.InvokeAsync(NewCommentContent);
+            }
+
+            NewCommentContent = "";
+            NewCommentLineNumber = null;
+            MentionedUsers.Clear();
+        }
+        catch (Exception)
+        {
+            // Log error
+        }
+    }
+
+    private async Task SubmitReplyAsync(string parentCommentId)
+    {
+        if (string.IsNullOrWhiteSpace(ReplyContent))
+            return;
+
+        try
+        {
+            if (HubConnection?.State == HubConnectionState.Connected)
+            {
+                await HubConnection.SendAsync("ReplyToCommentAsync",
+                    CurrentUserId,
+                    CurrentUserName,
+                    CurrentUserEmail,
+                    ReplyContent,
+                    parentCommentId,
+                    "project-id",
+                    MentionedUsers);
+            }
+
+            ReplyContent = "";
+            ReplyFormVisibleFor = null;
+        }
+        catch (Exception)
+        {
+            // Log error
+        }
+    }
+
+    private async Task ResolveCommentAsync(string commentId)
+    {
+        try
+        {
+            if (HubConnection?.State == HubConnectionState.Connected)
+            {
+                await HubConnection.SendAsync("ResolveCommentAsync", commentId);
+            }
+        }
+        catch (Exception)
+        {
+            // Log error
+        }
+    }
+
+    private void ToggleReplyForm(string commentId)
+    {
+        ReplyFormVisibleFor = ReplyFormVisibleFor == commentId ? null : commentId;
+        if (ReplyFormVisibleFor != commentId)
+        {
+            ExpandedReplies.Add(commentId);
+        }
+    }
+
+    private void ToggleUnresolvedFilter()
+    {
+        ShowOnlyUnresolved = !ShowOnlyUnresolved;
+        RefreshCommentDisplay();
+    }
+
+    private void ShowReactionPicker(string commentId)
+    {
+        // Would show emoji picker here
+    }
+
+    private void OnMentionSearch(ChangeEventArgs e)
+    {
+        MentionSearchText = e.Value?.ToString() ?? "";
+        FilteredUsers = AvailableUsers?
+            .Where(u => u.Contains(MentionSearchText, StringComparison.OrdinalIgnoreCase))
+            .Take(5)
+            .ToList() ?? new();
+    }
+
+    private void SelectMention(string userName)
+    {
+        if (!MentionedUsers.Contains(userName))
+        {
+            MentionedUsers.Add(userName);
+        }
+        MentionSearchText = "";
+        FilteredUsers.Clear();
+    }
+
+    private void CancelReply()
+    {
+        ReplyContent = "";
+        ReplyFormVisibleFor = null;
+    }
+
+    private void CancelComment()
+    {
+        NewCommentContent = "";
+        NewCommentLineNumber = null;
+        MentionedUsers.Clear();
+    }
+
+    private void RefreshCommentDisplay()
+    {
+        DisplayedComments = ShowOnlyUnresolved
+            ? AllComments.Where(c => !c.IsResolved).ToList()
+            : AllComments.ToList();
+    }
+
+    private async Task ScrollToBottom()
+    {
+        try
+        {
+            await Task.Delay(100);
+            // Would use JS interop to scroll here
+        }
+        catch
+        {
+            // Ignore scroll errors
+        }
+    }
+
+    private string GetTimeAgo(DateTime dateTime)
+    {
+        var span = DateTime.UtcNow - dateTime;
+        return span.TotalSeconds < 60 ? "just now"
+            : span.TotalMinutes < 60 ? $"{(int)span.TotalMinutes}m ago"
+            : span.TotalHours < 24 ? $"{(int)span.TotalHours}h ago"
+            : $"{(int)span.TotalDays}d ago";
+    }
+
+    private class CommentViewModel
+    {
+        public string Id { get; set; } = string.Empty;
+        public string AuthorName { get; set; } = string.Empty;
+        public string AuthorEmail { get; set; } = string.Empty;
+        public string Content { get; set; } = string.Empty;
+        public string ResourceId { get; set; } = string.Empty;
+        public int? LineNumber { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public bool IsResolved { get; set; }
+        public DateTime? ResolvedAt { get; set; }
+        public List<CommentViewModel> Replies { get; set; } = new();
+        public Dictionary<string, List<string>> Reactions { get; set; } = new();
+    }
+
+    async ValueTask IAsyncDisposable.DisposeAsync()
+    {
+        if (HubConnection is not null)
+        {
+            await HubConnection.DisposeAsync();
+        }
+    }
+}
+
+<style scoped>
+.collaborative-comments-container {
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.comments-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    border-bottom: 2px solid #f0f0f0;
+    flex-shrink: 0;
+}
+
+.comments-header h4 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.comments-icon {
+    font-size: 20px;
+}
+
+.comments-controls {
+    display: flex;
+    gap: 8px;
+}
+
+.toggle-btn {
+    padding: 6px 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    background: white;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s;
+}
+
+.toggle-btn.active {
+    background: #fff3cd;
+    border-color: #ffc107;
+    color: #856404;
+}
+
+.comments-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+}
+
+.empty-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    text-align: center;
+}
+
+.comment-item {
+    margin-bottom: 16px;
+    padding: 12px;
+    border-radius: 6px;
+    background: #f9f9f9;
+    border-left: 3px solid #007bff;
+}
+
+.comment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+}
+
+.author-info {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.author-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.author-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.author-name {
+    font-weight: 600;
+    color: #333;
+    font-size: 13px;
+}
+
+.author-email {
+    font-size: 11px;
+    color: #999;
+}
+
+.comment-meta {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-size: 12px;
+}
+
+.comment-time {
+    color: #999;
+}
+
+.resolved-badge {
+    background: #d4edda;
+    color: #155724;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.comment-location {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 8px;
+    padding: 4px 6px;
+    background: #f0f0f0;
+    border-radius: 3px;
+    display: inline-block;
+}
+
+.comment-content {
+    font-size: 13px;
+    color: #555;
+    line-height: 1.5;
+    margin-bottom: 8px;
+    word-break: break-word;
+}
+
+.comment-reactions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+}
+
+.reaction-chip {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: #f0f0f0;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.reaction-chip:hover {
+    background: #e0e0e0;
+}
+
+.reaction-emoji {
+    font-size: 14px;
+}
+
+.reaction-count {
+    color: #666;
+    font-weight: 500;
+}
+
+.comment-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+}
+
+.action-btn {
+    padding: 4px 8px;
+    border: 1px solid #e0e0e0;
+    background: white;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.action-btn:hover {
+    background: #f0f0f0;
+}
+
+.action-icon {
+    font-size: 12px;
+}
+
+.replies-section {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.reply-item {
+    margin-bottom: 8px;
+    padding: 8px;
+    background: #f5f5f5;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.reply-header {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.reply-author {
+    font-weight: 600;
+    color: #333;
+}
+
+.reply-time {
+    color: #999;
+}
+
+.reply-content {
+    color: #555;
+    line-height: 1.4;
+}
+
+.reply-form {
+    margin-top: 12px;
+    padding: 12px;
+    background: #f5f5f5;
+    border-radius: 4px;
+}
+
+.reply-input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #e0e0e0;
+    border-radius: 3px;
+    font-size: 12px;
+    font-family: inherit;
+    resize: vertical;
+}
+
+.add-comment-section {
+    padding: 16px;
+    border-top: 2px solid #f0f0f0;
+    flex-shrink: 0;
+}
+
+.add-comment-section h5 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.comment-input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: inherit;
+    resize: vertical;
+    margin-bottom: 12px;
+}
+
+.comment-options {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.line-number-input,
+.mentions-input {
+    flex: 1;
+    position: relative;
+}
+
+.line-number-input label,
+.mentions-input label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    margin-bottom: 4px;
+    color: #666;
+}
+
+.line-number-input input,
+.mentions-input input {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #e0e0e0;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+.user-suggestions {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 3px;
+    max-height: 150px;
+    overflow-y: auto;
+    z-index: 1000;
+}
+
+.user-suggestion {
+    padding: 6px 8px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+}
+
+.user-suggestion:hover {
+    background: #f0f0f0;
+}
+
+.user-avatar-small {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #667eea;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.form-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.btn-primary {
+    background: #007bff;
+    color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: #0056b3;
+}
+
+.btn-primary:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+.btn-secondary {
+    background: #f0f0f0;
+    color: #333;
+    border: 1px solid #e0e0e0;
+}
+
+.btn-secondary:hover {
+    background: #e0e0e0;
+}
+
+.badge {
+    display: inline-block;
+    padding: 0.25em 0.4em;
+    border-radius: 0.25rem;
+    font-size: 75%;
+    font-weight: 700;
+}
+
+.badge-primary {
+    background-color: #007bff;
+    color: white;
+}
+
+.text-muted {
+    color: #6c757d;
+}
+</style>

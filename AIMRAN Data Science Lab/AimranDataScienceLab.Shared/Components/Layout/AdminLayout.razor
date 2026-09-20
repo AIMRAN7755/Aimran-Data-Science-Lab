@@ -1,0 +1,77 @@
+@inherits LayoutComponentBase
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+
+@if (!_authorized)
+{
+    <div class="admin-denied">
+        <div class="denied-card">
+            <span class="denied-icon">🔒</span>
+            <h2>Admin Access Required</h2>
+            <p>You must be logged in as an Admin to access this area.</p>
+            <a href="/" class="btn btn-primary">Back to Lab</a>
+        </div>
+    </div>
+}
+else
+{
+    <div class="admin-shell">
+        <!-- Admin Sidebar -->
+        <aside class="admin-sidebar">
+            <div class="admin-brand">
+                <span class="brand-icon">⚙️</span>
+                <span class="brand-text">Admin Console</span>
+            </div>
+            <nav class="admin-nav">
+                <NavLink class="admin-nav-link" href="admin" Match="NavLinkMatch.All">
+                    <span class="nav-emoji">📊</span> Dashboard
+                </NavLink>
+                <NavLink class="admin-nav-link" href="admin/users">
+                    <span class="nav-emoji">👥</span> Users
+                </NavLink>
+                <NavLink class="admin-nav-link" href="admin/datasets">
+                    <span class="nav-emoji">📂</span> Datasets
+                </NavLink>
+                <NavLink class="admin-nav-link" href="admin/storage">
+                    <span class="nav-emoji">💾</span> Storage
+                </NavLink>
+                <NavLink class="admin-nav-link" href="admin/audit">
+                    <span class="nav-emoji">📋</span> Audit Logs
+                </NavLink>
+                <NavLink class="admin-nav-link" href="admin/settings">
+                    <span class="nav-emoji">🔧</span> Settings
+                </NavLink>
+                <NavLink class="admin-nav-link" href="security">
+                    <span class="nav-emoji">🛡️</span> Security
+                </NavLink>
+            </nav>
+            <div class="admin-sidebar-footer">
+                <a href="/" class="admin-back-link">← Back to Lab</a>
+                <div class="admin-user-badge">
+                    <span>🧑‍💼</span>
+                    <span>@(_currentUser?.Username ?? "Admin")</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Admin Content -->
+        <main class="admin-content">
+            @Body
+        </main>
+    </div>
+}
+
+@code {
+    private AimranUser? _currentUser;
+    private bool _authorized;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _currentUser = await AuthService.GetCurrentUserAsync();
+        _authorized = _currentUser is not null &&
+                      string.Equals(_currentUser.Role, AimranRoles.Admin, StringComparison.OrdinalIgnoreCase);
+
+        if (_currentUser is null)
+            Navigation.NavigateTo("/login");
+    }
+}

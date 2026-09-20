@@ -1,0 +1,107 @@
+# ── 1. Core Data Processing ───────────────────────────────────────────────────
+numpy>=1.26.0
+pandas>=2.1.0
+polars>=0.19.0
+pyarrow>=14.0.0
+dask[complete]>=2023.10.0
+
+# ── 2. Machine Learning ───────────────────────────────────────────────────────
+scikit-learn>=1.3.0
+xgboost>=2.0.0
+lightgbm>=4.1.0
+optuna>=3.4.0
+shap>=0.44.0  # imported (optional) by src/explainability; declare so it actually loads
+
+# ── 3. Deep Learning ──────────────────────────────────────────────────────────
+torch>=2.1.0
+torchvision>=0.16.0
+transformers>=4.35.0
+tokenizers>=0.15.0
+
+# ── 4. NLP ────────────────────────────────────────────────────────────────────
+spacy>=3.7.0
+nltk>=3.8.1
+
+# ── 5. Visualization ──────────────────────────────────────────────────────────
+matplotlib>=3.8.0
+seaborn>=0.13.0
+plotly>=5.18.0
+bokeh>=3.3.0
+
+# ── 6. API & Web ──────────────────────────────────────────────────────────────
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+starlette>=0.27.0
+pydantic>=2.4.0
+python-multipart>=0.0.6
+httpx>=0.25.0
+requests>=2.31.0
+websockets>=12.0
+
+# ── 7. UI ─────────────────────────────────────────────────────────────────────
+streamlit>=1.28.0
+gradio>=4.4.0
+
+# ── 8. MLOps ──────────────────────────────────────────────────────────────────
+mlflow>=2.8.0
+wandb>=0.16.0
+dvc[s3]>=3.27.0
+
+# ── 9. Database ───────────────────────────────────────────────────────────────
+sqlalchemy>=2.0.0
+asyncpg>=0.29.0
+psycopg2-binary>=2.9.9
+alembic>=1.12.0
+
+# ── 10. Caching ───────────────────────────────────────────────────────────────
+redis>=5.0.1
+
+# ── 11. Task Queue ────────────────────────────────────────────────────────────
+celery[redis]>=5.3.4
+flower>=2.0.1
+
+# ── 12. Monitoring ────────────────────────────────────────────────────────────
+psutil>=5.9.6
+prometheus-client>=0.18.0
+
+# ── 13. Testing ───────────────────────────────────────────────────────────────
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+httpx>=0.25.0
+
+# ── 14. Code Quality ──────────────────────────────────────────────────────────
+black>=23.10.0
+flake8>=6.1.0
+isort>=5.12.0
+mypy>=1.6.0
+
+# ── 15. Dev Tools ─────────────────────────────────────────────────────────────
+jupyterlab>=4.0.0
+ipywidgets>=8.1.0
+nbformat>=5.9.2
+python-dotenv>=1.0.0
+click>=8.1.7
+tabulate>=0.9.0
+rich>=13.6.0
+
+# ── 16. Security ──────────────────────────────────────────────────────────────
+cryptography>=41.0.0
+passlib[bcrypt]>=1.7.4
+pyjwt>=2.13.0
+slowapi>=0.1.10
+bcrypt==4.0.1
+protobuf>=7.35.1  # must match checked-in gencode (src/multi_language/grpc/services_pb2.py); if you downgrade protobuf, regenerate the stubs (command in grpc_server.py)
+
+# ── 17. Observability ─────────────────────────────────────────────────────────
+opentelemetry-api>=1.20.0
+opentelemetry-sdk>=1.20.0
+opentelemetry-exporter-otlp>=1.20.0
+
+# ── 18. Serialization ─────────────────────────────────────────────────────────
+joblib>=1.3.2
+cloudpickle>=3.0.0
+
+# ── 19. gRPC ──────────────────────────────────────────────────────────────────
+grpcio>=1.60.0
+grpcio-tools>=1.60.0

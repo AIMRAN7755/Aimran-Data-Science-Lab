@@ -1,0 +1,519 @@
+@implements IAsyncDisposable
+@inject NavigationManager Navigation
+@using Microsoft.AspNetCore.SignalR.Client
+
+<div class="team-presence-container">
+    <div class="presence-header">
+        <h4>
+            <span class="presence-icon">👥</span>
+            Team Members Online
+            <span class="member-count badge badge-primary">@OnlineUsers.Count</span>
+        </h4>
+    </div>
+
+    @if (OnlineUsers.Count == 0)
+    {
+        <div class="empty-state">
+            <p class="text-muted">No team members currently online</p>
+        </div>
+    }
+    else
+    {
+        <div class="presence-list">
+            @foreach (var user in OnlineUsers)
+            {
+                <div class="presence-item" title="@user.UserName - @user.RoleType">
+                    <div class="user-avatar">
+                        @if (!string.IsNullOrEmpty(user.AvatarUrl))
+                        {
+                            <img src="@user.AvatarUrl" alt="@user.UserName" class="avatar-image" />
+                        }
+                        else
+                        {
+                            <div class="avatar-placeholder">
+                                @user.UserName.First()
+                            </div>
+                        }
+                        <span class="online-indicator"></span>
+                    </div>
+
+                    <div class="user-info">
+                        <div class="user-name">@user.UserName</div>
+                        <div class="user-role">
+                            <span class="role-badge role-@user.RoleType.ToLower()">@GetRoleIcon(user.RoleType) @user.RoleType</span>
+                        </div>
+                        <div class="user-activity">
+                            @if (!string.IsNullOrEmpty(user.CurrentResourceType))
+                            {
+                                <small class="text-muted">
+                                    <span class="activity-icon">✏️</span>
+                                    Editing @user.CurrentResourceType
+                                </small>
+                            }
+                            else
+                            {
+                                <small class="text-muted">
+                                    <span class="activity-icon">👁️</span>
+                                    Viewing
+                                </small>
+                            }
+                        </div>
+                        <div class="last-activity">
+                            <small class="text-muted">@GetTimeAgo(user.LastActivityAt)</small>
+                        </div>
+                    </div>
+
+                    @if (ExpandedUsers.Contains(user.UserId))
+                    {
+                        <div class="user-details">
+                            <div class="detail-row">
+                                <span class="detail-label">Email:</span>
+                                <span class="detail-value">@user.Email</span>
+                            </div>
+                            @if (!string.IsNullOrEmpty(user.CurrentProjectId))
+                            {
+                                <div class="detail-row">
+                                    <span class="detail-label">Project:</span>
+                                    <span class="detail-value">@user.CurrentProjectId</span>
+                                </div>
+                            }
+                            @if (!string.IsNullOrEmpty(user.CurrentResourceId))
+                            {
+                                <div class="detail-row">
+                                    <span class="detail-label">Resource:</span>
+                                    <span class="detail-value" title="@user.CurrentResourceId">
+                                        @(user.CurrentResourceId.Length > 20 ? user.CurrentResourceId.Substring(0, 20) + "..." : user.CurrentResourceId)
+                                    </span>
+                                </div>
+                            }
+                            @if (user.CursorPosition != null)
+                            {
+                                <div class="detail-row">
+                                    <span class="detail-label">Cursor:</span>
+                                    <span class="detail-value">Line @(user.CursorPosition.Line), Col @(user.CursorPosition.Column)</span>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+
+    @if (RecentActivity.Count > 0)
+    {
+        <div class="recent-activity-section">
+            <h5>
+                <span class="activity-icon">📋</span>
+                Recent Activity
+            </h5>
+            <div class="activity-list">
+                @foreach (var activity in RecentActivity.Take(5))
+                {
+                    <div class="activity-item">
+                        <span class="activity-time">@GetTimeAgo(activity.Timestamp)</span>
+                        <span class="activity-text">@activity.UserName @activity.Description</span>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string? ProjectId { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnUserClicked { get; set; }
+
+    private List<OnlineUserViewModel> OnlineUsers { get; set; } = new();
+    private List<string> ExpandedUsers { get; set; } = new();
+    private List<ActivityViewModel> RecentActivity { get; set; } = new();
+    private HubConnection? HubConnection;
+
+    protected override async Task OnInitializedAsync()
+    {
+        HubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/collaborationhub"))
+            .WithAutomaticReconnect()
+            .Build();
+
+        // Register event handlers
+        HubConnection.On<dynamic>("UserOnline", async (user) =>
+        {
+            await AddOnlineUser(user);
+            await InvokeAsync(StateHasChanged);
+        });
+
+        HubConnection.On<dynamic>("UserOffline", async (user) =>
+        {
+            await RemoveOnlineUser(user.userId);
+            await InvokeAsync(StateHasChanged);
+        });
+
+        HubConnection.On<dynamic>("PresenceUpdated", async (update) =>
+        {
+            await UpdateUserPresence(update);
+            await InvokeAsync(StateHasChanged);
+        });
+
+        HubConnection.On<dynamic>("ActivityLogged", async (activity) =>
+        {
+            var activityItem = new ActivityViewModel
+            {
+                UserName = activity.userName,
+                Description = activity.description,
+                Timestamp = DateTime.UtcNow
+            };
+            RecentActivity.Insert(0, activityItem);
+            if (RecentActivity.Count > 10) RecentActivity.RemoveAt(RecentActivity.Count - 1);
+            await InvokeAsync(StateHasChanged);
+        });
+
+        await HubConnection.StartAsync();
+    }
+
+    private async Task AddOnlineUser(dynamic user)
+    {
+        var existingUser = OnlineUsers.FirstOrDefault(u => u.UserId == user.userId);
+        if (existingUser == null)
+        {
+            OnlineUsers.Add(new OnlineUserViewModel
+            {
+                UserId = user.userId,
+                UserName = user.userName,
+                RoleType = user.roleType,
+                AvatarUrl = user.avatarUrl,
+                Email = user.email ?? "",
+                LastActivityAt = DateTime.UtcNow
+            });
+        }
+    }
+
+    private async Task RemoveOnlineUser(string userId)
+    {
+        OnlineUsers.RemoveAll(u => u.UserId == userId);
+        ExpandedUsers.Remove(userId);
+    }
+
+    private async Task UpdateUserPresence(dynamic update)
+    {
+        var user = OnlineUsers.FirstOrDefault(u => u.UserId == update.userId);
+        if (user != null)
+        {
+            user.CurrentProjectId = update.projectId;
+            user.CurrentResourceId = update.resourceId;
+            user.CurrentResourceType = update.resourceType;
+            user.LastActivityAt = DateTime.UtcNow;
+        }
+    }
+
+    private void ToggleUserDetails(string userId)
+    {
+        if (ExpandedUsers.Contains(userId))
+        {
+            ExpandedUsers.Remove(userId);
+        }
+        else
+        {
+            ExpandedUsers.Add(userId);
+        }
+    }
+
+    private string GetRoleIcon(string roleType) => roleType?.ToLower() switch
+    {
+        "dataanalyst" => "📊",
+        "datascientist" => "🧪",
+        "dataengineer" => "⚙️",
+        "aiengineer" => "🤖",
+        _ => "👤"
+    };
+
+    private string GetTimeAgo(DateTime dateTime)
+    {
+        var span = DateTime.UtcNow - dateTime;
+        return span.TotalSeconds < 60 ? "Just now"
+            : span.TotalMinutes < 60 ? $"{(int)span.TotalMinutes}m ago"
+            : span.TotalHours < 24 ? $"{(int)span.TotalHours}h ago"
+            : $"{(int)span.TotalDays}d ago";
+    }
+
+    private class OnlineUserViewModel
+    {
+        public string UserId { get; set; } = string.Empty;
+        public string UserName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string RoleType { get; set; } = string.Empty;
+        public string? AvatarUrl { get; set; }
+        public string? CurrentProjectId { get; set; }
+        public string? CurrentResourceId { get; set; }
+        public string? CurrentResourceType { get; set; }
+        public DateTime LastActivityAt { get; set; }
+        public CursorPosition? CursorPosition { get; set; }
+    }
+
+    private class ActivityViewModel
+    {
+        public string UserName { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public DateTime Timestamp { get; set; }
+    }
+
+    async ValueTask IAsyncDisposable.DisposeAsync()
+    {
+        if (HubConnection is not null)
+        {
+            await HubConnection.DisposeAsync();
+        }
+    }
+}
+
+<style scoped>
+.team-presence-container {
+    background: white;
+    border-radius: 8px;
+    padding: 16px;
+    border: 1px solid #e0e0e0;
+    margin-bottom: 16px;
+}
+
+.presence-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #f0f0f0;
+}
+
+.presence-header h4 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.presence-icon {
+    font-size: 20px;
+}
+
+.member-count {
+    font-size: 12px;
+    padding: 2px 6px;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 24px;
+    background: #f9f9f9;
+    border-radius: 4px;
+}
+
+.presence-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.presence-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 6px;
+    background: #f9f9f9;
+    transition: background-color 0.2s;
+    cursor: pointer;
+}
+
+.presence-item:hover {
+    background: #f0f0f0;
+}
+
+.user-avatar {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+}
+
+.avatar-image {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.avatar-placeholder {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 16px;
+}
+
+.online-indicator {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #4caf50;
+    border: 2px solid white;
+}
+
+.user-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.user-name {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 4px;
+}
+
+.user-role {
+    margin-bottom: 4px;
+}
+
+.role-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.role-dataanalyst {
+    background: #e3f2fd;
+    color: #1565c0;
+}
+
+.role-datascientist {
+    background: #f3e5f5;
+    color: #6a1b9a;
+}
+
+.role-dataengineer {
+    background: #ffe0b2;
+    color: #e65100;
+}
+
+.role-aiengineer {
+    background: #f0f4c3;
+    color: #827717;
+}
+
+.user-activity {
+    margin-bottom: 4px;
+    font-size: 12px;
+    color: #666;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.activity-icon {
+    font-size: 12px;
+}
+
+.last-activity {
+    font-size: 11px;
+    color: #999;
+}
+
+.user-details {
+    width: 100%;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #e0e0e0;
+    font-size: 12px;
+}
+
+.detail-row {
+    display: flex;
+    margin-bottom: 4px;
+}
+
+.detail-label {
+    font-weight: 500;
+    color: #666;
+    min-width: 70px;
+}
+
+.detail-value {
+    color: #333;
+    word-break: break-all;
+}
+
+.recent-activity-section {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 2px solid #f0f0f0;
+}
+
+.recent-activity-section h5 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.activity-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.activity-item {
+    display: flex;
+    gap: 12px;
+    padding: 8px;
+    background: #f5f5f5;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.activity-time {
+    color: #999;
+    white-space: nowrap;
+    min-width: 60px;
+}
+
+.activity-text {
+    color: #333;
+    flex: 1;
+}
+
+.badge {
+    display: inline-block;
+    padding: 0.25em 0.4em;
+    border-radius: 0.25rem;
+    font-size: 75%;
+    font-weight: 700;
+}
+
+.badge-primary {
+    background-color: #007bff;
+    color: white;
+}
+
+.text-muted {
+    color: #6c757d;
+}
+</style>
+
+@using AIMRAN_Data_Science_Lab.Domain.Collaboration

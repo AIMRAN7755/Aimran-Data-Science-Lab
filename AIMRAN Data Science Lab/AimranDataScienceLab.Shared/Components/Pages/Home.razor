@@ -1,0 +1,171 @@
+﻿@page "/home"
+@inject IProjectService ProjectService
+@inject IDatasetService DatasetService
+@inject IExperimentService ExperimentService
+@inject IModelService ModelService
+@inject IResourceMonitorService ResourceMonitor
+@inject AimranDataScienceLab.Engine.IAimranEngine Engine
+
+<PageTitle>DS-Workbench Dashboard</PageTitle>
+
+<div class="dashboard">
+    <header class="dashboard-header">
+        <h1>🔬 DS-Workbench</h1>
+        <p class="subtitle">Unified Control Center for Data Scientists</p>
+    </header>
+
+    <!-- Quick Stats -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">📁</div>
+            <div class="stat-content">
+                <span class="stat-value">@_projectCount</span>
+                <span class="stat-label">Projects</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">📊</div>
+            <div class="stat-content">
+                <span class="stat-value">@_datasetCount</span>
+                <span class="stat-label">Datasets</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">🧪</div>
+            <div class="stat-content">
+                <span class="stat-value">@_experimentCount</span>
+                <span class="stat-label">Experiments</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">🤖</div>
+            <div class="stat-content">
+                <span class="stat-value">@_modelCount</span>
+                <span class="stat-label">Models</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Resources -->
+    <section class="dashboard-section">
+        <h2>💻 System Resources</h2>
+        <div class="resource-bars">
+            <div class="resource-item">
+                <div class="resource-label">
+                    <span>CPU</span>
+                    <span>@_metrics.Cpu.UsagePercent.ToString("F1")%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill cpu" style="width: @(_metrics.Cpu.UsagePercent)%"></div>
+                </div>
+            </div>
+            <div class="resource-item">
+                <div class="resource-label">
+                    <span>Memory</span>
+                    <span>@_metrics.Memory.UsagePercent.ToString("F1")%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill memory" style="width: @(_metrics.Memory.UsagePercent)%"></div>
+                </div>
+            </div>
+            <div class="resource-item">
+                <div class="resource-label">
+                    <span>Disk</span>
+                    <span>@_metrics.Disk.UsagePercent.ToString("F1")%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill disk" style="width: @(_metrics.Disk.UsagePercent)%"></div>
+                </div>
+            </div>
+            @if (_metrics.Gpu is not null)
+            {
+                <div class="resource-item">
+                    <div class="resource-label">
+                        <span>GPU (@_metrics.Gpu.Name)</span>
+                        <span>@_metrics.Gpu.UsagePercent.ToString("F1")%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill gpu" style="width: @(_metrics.Gpu.UsagePercent)%"></div>
+                    </div>
+                </div>
+            }
+        </div>
+    </section>
+
+    <!-- Quick Actions -->
+    <section class="dashboard-section">
+        <h2>⚡ Quick Actions</h2>
+        <div class="action-grid">
+            <a href="projects" class="action-card">
+                <span class="action-icon">➕</span>
+                <span class="action-label">New Project</span>
+            </a>
+            <a href="datasets" class="action-card">
+                <span class="action-icon">📤</span>
+                <span class="action-label">Import Dataset</span>
+            </a>
+            <a href="experiments" class="action-card">
+                <span class="action-icon">🚀</span>
+                <span class="action-label">Run Experiment</span>
+            </a>
+            <a href="azure" class="action-card cloud">
+                <span class="action-icon">☁️</span>
+                <span class="action-label">Cloud Boost</span>
+            </a>
+        </div>
+    </section>
+
+    <!-- Recent Activity -->
+    <section class="dashboard-section">
+        <h2>📋 Recent Experiments</h2>
+        @if (_recentExperiments.Count == 0)
+        {
+            <div class="empty-state">
+                <p>No experiments yet. Start your first experiment to see activity here.</p>
+            </div>
+        }
+        else
+        {
+            <div class="activity-list">
+                @foreach (var experiment in _recentExperiments)
+                {
+                    <div class="activity-item">
+                        <span class="activity-status @experiment.Status.ToString().ToLower()"></span>
+                        <span class="activity-name">@experiment.Name</span>
+                        <span class="activity-time">@experiment.CreatedAt.ToString("g")</span>
+                    </div>
+                }
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    private int _projectCount;
+    private int _datasetCount;
+    private int _experimentCount;
+    private int _modelCount;
+    private ResourceMetrics _metrics = new();
+    private IReadOnlyList<Experiment> _recentExperiments = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDashboardDataAsync();
+    }
+
+    private async Task LoadDashboardDataAsync()
+    {
+        var snapshotResult = await Engine.GetSnapshotAsync();
+        if (snapshotResult.Succeeded && snapshotResult.Value is not null)
+        {
+            _projectCount = snapshotResult.Value.ProjectCount;
+            _datasetCount = snapshotResult.Value.DatasetCount;
+            _experimentCount = snapshotResult.Value.ExperimentCount;
+            _modelCount = snapshotResult.Value.ModelCount;
+            _metrics = snapshotResult.Value.ResourceMetrics ?? new ResourceMetrics();
+        }
+
+        var experiments = await ExperimentService.GetAllAsync();
+        _recentExperiments = experiments.OrderByDescending(e => e.CreatedAt).Take(5).ToList();
+    }
+}

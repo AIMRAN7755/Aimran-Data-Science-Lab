@@ -1,0 +1,404 @@
+/* ══════════════════════════════════════════════════════════════
+   AIMRAN Data Science Lab — Design System & IDE Shell
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Design Tokens ───────────────────────────────────────────── */
+:root {
+    --bg-shell:       #0f0f1a;
+    --bg-surface:     #16162a;
+    --bg-card:        #1c1c32;
+    --bg-elevated:    #22223a;
+    --bg-input:       #0d0d1a;
+    --border:         #2a2a44;
+    --border-hover:   #3d3d5c;
+    --text-primary:   #e4e4ef;
+    --text-secondary: #8888a8;
+    --text-muted:     #5c5c78;
+    --accent-blue:    #667eea;
+    --accent-purple:  #a855f7;
+    --accent-teal:    #2dd4bf;
+    --accent-amber:   #f59e0b;
+    --accent-green:   #22c55e;
+    --accent-red:     #ef4444;
+    --radius-sm:      6px;
+    --radius-md:      10px;
+    --radius-lg:      14px;
+    --shadow-card:    0 2px 12px rgba(0,0,0,0.35);
+    --shadow-glow:    0 0 20px rgba(102,126,234,0.15);
+    --shadow-strong:  0 8px 32px rgba(0,0,0,0.4);
+    --transition:     0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-smooth: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    --font-mono:      'Cascadia Code', 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    --font-sans:      'Inter', 'Segoe UI', -apple-system, sans-serif;
+    --sidebar-width:  240px;
+    --sidebar-collapsed: 56px;
+    --titlebar-h:     48px;
+    --statusbar-h:    28px;
+}
+
+/* ── IDE Shell Grid ──────────────────────────────────────────── */
+.ide-shell {
+    display: flex;
+    height: 100vh;
+    background: linear-gradient(135deg, var(--bg-shell) 0%, #141423 100%);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    overflow: hidden;
+    position: relative;
+}
+
+/* Subtle animated background gradient */
+.ide-shell::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(ellipse at 20% 50%, rgba(102, 126, 234, 0.05) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(168, 85, 247, 0.05) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────── */
+.ide-sidebar {
+    width: var(--sidebar-width);
+    min-width: var(--sidebar-width);
+    background: var(--bg-surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    transition: width var(--transition-smooth), min-width var(--transition-smooth);
+    overflow: hidden;
+    z-index: 11;
+    box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.05);
+}
+
+.ide-sidebar::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: linear-gradient(to bottom, rgba(102, 126, 234, 0.3), transparent);
+    pointer-events: none;
+}
+
+.ide-sidebar.collapsed {
+    width: var(--sidebar-collapsed);
+    min-width: var(--sidebar-collapsed);
+}
+
+/* ── Main Content Area ───────────────────────────────────────── */
+.ide-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+}
+
+/* ── Title Bar ───────────────────────────────────────────────── */
+.ide-titlebar {
+    height: var(--titlebar-h);
+    min-height: var(--titlebar-h);
+    background: linear-gradient(90deg, var(--bg-surface) 0%, rgba(22, 22, 42, 0.8) 100%);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 0.75rem;
+    gap: 0.75rem;
+    user-select: none;
+    -webkit-app-region: drag;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.titlebar-left, .titlebar-right {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+    -webkit-app-region: no-drag;
+}
+
+.titlebar-brand {
+    font-weight: 700;
+    font-size: 0.85rem;
+    background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: 0.02em;
+}
+
+.titlebar-center {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    -webkit-app-region: no-drag;
+}
+
+.command-palette-trigger {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: linear-gradient(135deg, var(--bg-card), rgba(28, 28, 50, 0.8));
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 0.4rem 0.85rem;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    cursor: pointer;
+    min-width: 280px;
+    max-width: 450px;
+    transition: all var(--transition-smooth);
+    position: relative;
+    overflow: hidden;
+}
+
+.command-palette-trigger::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(102, 126, 234, 0.1), transparent);
+    transition: left 0.6s ease;
+    pointer-events: none;
+}
+
+.command-palette-trigger:hover {
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 16px rgba(102, 126, 234, 0.2);
+    background: linear-gradient(135deg, rgba(34, 34, 50, 0.9), rgba(28, 28, 50, 0.9));
+}
+
+.command-palette-trigger:hover::before {
+    left: 100%;
+}
+
+.command-palette-trigger kbd {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.1rem 0.35rem;
+    margin-left: auto;
+    color: var(--text-muted);
+}
+
+.titlebar-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all var(--transition);
+    position: relative;
+}
+
+.titlebar-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(102, 126, 234, 0.1);
+    border-radius: var(--radius-sm);
+    opacity: 0;
+    transition: opacity var(--transition);
+}
+
+.titlebar-btn:hover {
+    background: rgba(102, 126, 234, 0.15);
+    color: var(--accent-blue);
+}
+
+.titlebar-btn:active {
+    transform: scale(0.95);
+}
+
+.titlebar-separator {
+    width: 1px;
+    height: 18px;
+    background: var(--border);
+}
+
+.env-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.8);
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.1));
+    padding: 0.25rem 0.7rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    transition: all var(--transition);
+}
+
+.env-badge:hover {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.25), rgba(34, 197, 94, 0.15));
+    border-color: rgba(34, 197, 94, 0.5);
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.2);
+}
+
+.env-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent-green);
+    box-shadow: 0 0 6px rgba(34,197,94,0.5);
+}
+
+/* ── Page Content ────────────────────────────────────────────── */
+.ide-content {
+    flex: 1;
+    overflow: auto;
+    background: var(--bg-shell);
+}
+
+/* ── Status Bar ──────────────────────────────────────────────── */
+.ide-statusbar {
+    height: var(--statusbar-h);
+    min-height: var(--statusbar-h);
+    background: linear-gradient(90deg, var(--accent-blue) 0%, rgba(102, 126, 234, 0.9) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 0.85rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: rgba(255,255,255,0.9);
+    user-select: none;
+    box-shadow: 0 -1px 16px rgba(102, 126, 234, 0.2);
+}
+
+.statusbar-left, .statusbar-right {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.status-item {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.engine-indicator::before {
+    content: '';
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    margin-right: 4px;
+    animation: pulse-status 2s ease-in-out infinite;
+}
+
+.engine-indicator.online::before {
+    background: #bbf7d0;
+    box-shadow: 0 0 6px rgba(187, 247, 208, 0.8);
+    animation: pulse-status-online 2s ease-in-out infinite;
+}
+
+.engine-indicator.offline::before {
+    background: rgba(255, 255, 255, 0.4);
+    box-shadow: 0 0 3px rgba(255, 255, 255, 0.3);
+}
+
+@keyframes pulse-status {
+    0%, 100% { opacity: 0.8; }
+    50% { opacity: 1; }
+}
+
+@keyframes pulse-status-online {
+    0%, 100% { 
+        box-shadow: 0 0 6px rgba(187, 247, 208, 0.8), 
+                    inset 0 0 3px rgba(187, 247, 208, 0.4);
+    }
+    50% { 
+        box-shadow: 0 0 10px rgba(187, 247, 208, 1), 
+                    inset 0 0 5px rgba(187, 247, 208, 0.6);
+    }
+}
+
+/* ── Mobile Responsive ───────────────────────────────────────── */
+@media (max-width: 1024px) {
+    .command-palette-trigger {
+        min-width: 240px;
+        max-width: 380px;
+    }
+}
+
+@media (max-width: 768px) {
+    :root {
+        --sidebar-width: 220px;
+        --titlebar-h: 44px;
+        --statusbar-h: 26px;
+    }
+
+    .ide-sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        z-index: 100;
+        box-shadow: 2px 0 16px rgba(0, 0, 0, 0.5);
+        transition: transform var(--transition-smooth), width var(--transition-smooth);
+        transform: translateX(0);
+    }
+
+    .ide-sidebar.collapsed {
+        width: var(--sidebar-width);
+        transform: translateX(-100%);
+        min-width: var(--sidebar-width);
+    }
+
+    .command-palette-trigger {
+        display: none;
+    }
+
+    .titlebar-brand {
+        font-size: 0.75rem;
+    }
+
+    .ide-main {
+        width: 100%;
+    }
+}
+
+@media (max-width: 600px) {
+    :root {
+        --sidebar-width: 200px;
+        --titlebar-h: 40px;
+        --statusbar-h: 24px;
+    }
+
+    .titlebar-left, .titlebar-right {
+        gap: 0.25rem;
+    }
+
+    .env-badge {
+        display: none;
+    }
+
+    .titlebar-btn {
+        width: 32px;
+        height: 32px;
+    }
+
+    .status-item {
+        font-size: 0.65rem;
+    }
+}

@@ -1,0 +1,268 @@
+@page "/"
+@implements IDisposable
+@inject AimranDataScienceLab.Engine.IAimranEngine Engine
+@inject IResourceMonitorService ResourceMonitor
+@inject IGatewayManager Gateway
+@inject NavigationManager Navigation
+@inject IExtensionManagerService ExtensionManager
+
+<PageTitle>Dashboard - AIMRAN Data Science Lab</PageTitle>
+
+<div class="dashboard">
+    @if (_isLoading)
+    {
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Initializing AIMRAN Data Science Lab…</p>
+        </div>
+    }
+    else
+    {
+        <!-- ── Welcome Banner ───────────────────────────────────────── -->
+        <section class="welcome-banner">
+            <div class="welcome-text">
+                <h1>@_greeting</h1>
+                <p class="welcome-sub">AIMRAN Data Science Lab · AI-Powered Multi-Language IDE</p>
+            </div>
+            <div class="welcome-actions">
+                <button class="btn-primary-glow" @onclick='() => Navigation.NavigateTo("code-editor")'>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M5.854 4.854a.5.5 0 1 0-.708-.708l-3.5 3.5a.5.5 0 0 0 0 .708l3.5 3.5a.5.5 0 0 0 .708-.708L2.707 8l3.147-3.146zm4.292 0a.5.5 0 0 1 .708-.708l3.5 3.5a.5.5 0 0 1 0 .708l-3.5 3.5a.5.5 0 0 1-.708-.708L13.293 8l-3.147-3.146z"/></svg>
+                    New Code
+                </button>
+                <button class="btn-secondary-outline" @onclick='() => Navigation.NavigateTo("notebook")'>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 0h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v-1h1v1a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v1H1V2a2 2 0 0 1 2-2z"/><path d="M1 5v-.5a.5.5 0 0 1 1 0V5h1v-.5a.5.5 0 0 1 1 0V5h1v-.5a.5.5 0 0 1 1 0V5h1v-.5a.5.5 0 0 1 1 0V5h.5a.5.5 0 0 1 0 1H7v.5a.5.5 0 0 1-1 0V6H5v.5a.5.5 0 0 1-1 0V6H3v.5a.5.5 0 0 1-1 0V6H1v-.5a.5.5 0 0 1 0-1z"/></svg>
+                    Open Notebook
+                </button>
+            </div>
+        </section>
+
+        <!-- ── Stat Cards ───────────────────────────────────────────── -->
+        <section class="stats-row">
+            <div class="stat-card accent-blue" @onclick='() => Navigation.NavigateTo("projects")'>
+                <div class="stat-number">@_snapshot.ProjectCount</div>
+                <div class="stat-label">Projects</div>
+                <div class="stat-bg-icon">📁</div>
+            </div>
+            <div class="stat-card accent-purple" @onclick='() => Navigation.NavigateTo("datasets")'>
+                <div class="stat-number">@_snapshot.DatasetCount</div>
+                <div class="stat-label">Datasets</div>
+                <div class="stat-bg-icon">📊</div>
+            </div>
+            <div class="stat-card accent-teal" @onclick='() => Navigation.NavigateTo("experiments")'>
+                <div class="stat-number">@_snapshot.ExperimentCount</div>
+                <div class="stat-label">Experiments</div>
+                <div class="stat-bg-icon">🧪</div>
+            </div>
+            <div class="stat-card accent-amber" @onclick='() => Navigation.NavigateTo("models")'>
+                <div class="stat-number">@_snapshot.ModelCount</div>
+                <div class="stat-label">Models</div>
+                <div class="stat-bg-icon">🤖</div>
+            </div>
+        </section>
+
+        <div class="dashboard-grid">
+            <!-- ── Quick Actions ─────────────────────────────────────── -->
+            <section class="dash-panel">
+                <h2 class="panel-title">⚡ Quick Actions</h2>
+                <div class="action-grid">
+                    <button class="action-card" @onclick='() => Navigation.NavigateTo("code-editor")'>
+                        <span class="action-icon">📝</span>
+                        <div class="action-text">
+                            <strong>Code Editor</strong>
+                            <small>Python · R · SQL</small>
+                        </div>
+                    </button>
+                    <button class="action-card" @onclick='() => Navigation.NavigateTo("notebook")'>
+                        <span class="action-icon">📓</span>
+                        <div class="action-text">
+                            <strong>Notebook</strong>
+                            <small>Jupyter-style cells</small>
+                        </div>
+                    </button>
+                    <button class="action-card" @onclick='() => Navigation.NavigateTo("data-viewer")'>
+                        <span class="action-icon">🔍</span>
+                        <div class="action-text">
+                            <strong>Data Viewer</strong>
+                            <small>Explore & profile</small>
+                        </div>
+                    </button>
+                    <button class="action-card" @onclick='() => Navigation.NavigateTo("visualization")'>
+                        <span class="action-icon">📈</span>
+                        <div class="action-text">
+                            <strong>Visualization</strong>
+                            <small>ggplot · matplotlib</small>
+                        </div>
+                    </button>
+                    <button class="action-card" @onclick='() => Navigation.NavigateTo("packages")'>
+                        <span class="action-icon">📦</span>
+                        <div class="action-text">
+                            <strong>Packages</strong>
+                            <small>pip · CRAN</small>
+                        </div>
+                    </button>
+                    <button class="action-card" @onclick='() => Navigation.NavigateTo("extensions")'>
+                        <span class="action-icon">🧩</span>
+                        <div class="action-text">
+                            <strong>Extensions</strong>
+                            <small>@_extensionCount installed</small>
+                        </div>
+                    </button>
+                </div>
+            </section>
+
+            <!-- ── Engine Health ──────────────────────────────────────── -->
+            <section class="dash-panel">
+                <h2 class="panel-title">🔧 Engine Status</h2>
+                <div class="engine-list">
+                    <div class="engine-row">
+                        <span class="engine-dot @(_pythonHealthy ? "on" : "off")"></span>
+                        <span class="engine-name">🐍 Python AI Engine</span>
+                        <span class="engine-badge @(_pythonHealthy ? "on" : "off")">@(_pythonHealthy ? "Online" : "Offline")</span>
+                        @if (_pythonHealth?.ResponseTime is not null)
+                        {
+                            <span class="engine-latency">@(_pythonHealth.ResponseTime.Value.TotalMilliseconds.ToString("F0"))ms</span>
+                        }
+                    </div>
+                    <div class="engine-row">
+                        <span class="engine-dot @(_rHealthy ? "on" : "off")"></span>
+                        <span class="engine-name">📊 R Statistical Engine</span>
+                        <span class="engine-badge @(_rHealthy ? "on" : "off")">@(_rHealthy ? "Online" : "Offline")</span>
+                        @if (_rHealth?.ResponseTime is not null)
+                        {
+                            <span class="engine-latency">@(_rHealth.ResponseTime.Value.TotalMilliseconds.ToString("F0"))ms</span>
+                        }
+                    </div>
+                    <div class="engine-row">
+                        <span class="engine-dot @(_rustHealthy ? "on" : "off")"></span>
+                        <span class="engine-name">⚙️ Rust Resource Engine</span>
+                        <span class="engine-badge @(_rustHealthy ? "on" : "off")">@(_rustHealthy ? "Online" : "Offline")</span>
+                        @if (_rustHealth?.ResponseTime is not null)
+                        {
+                            <span class="engine-latency">@(_rustHealth.ResponseTime.Value.TotalMilliseconds.ToString("F0"))ms</span>
+                        }
+                    </div>
+                    <div class="engine-row">
+                        <span class="engine-dot @(_snapshot.AzureConfigured ? "on" : "off")"></span>
+                        <span class="engine-name">☁️ Azure ML</span>
+                        <span class="engine-badge @(_snapshot.AzureConfigured ? "on" : "off")">@(_snapshot.AzureConfigured ? "Connected" : "Not configured")</span>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- ── Resource Monitor ──────────────────────────────────────── -->
+        @if (_metrics is not null)
+        {
+            <section class="dash-panel full-width">
+                <h2 class="panel-title">💻 System Resources</h2>
+                <div class="resource-strip">
+                    <div class="res-meter">
+                        <div class="res-ring" style="--pct: @(_metrics.Cpu.UsagePercent); --ring-color: var(--accent-blue);">
+                            <span class="res-pct">@_metrics.Cpu.UsagePercent.ToString("F0")%</span>
+                        </div>
+                        <span class="res-name">CPU</span>
+                        <span class="res-detail">@_metrics.Cpu.CoreCount cores</span>
+                    </div>
+                    <div class="res-meter">
+                        <div class="res-ring" style="--pct: @(_metrics.Memory.UsagePercent); --ring-color: var(--accent-purple);">
+                            <span class="res-pct">@_metrics.Memory.UsagePercent.ToString("F0")%</span>
+                        </div>
+                        <span class="res-name">Memory</span>
+                        <span class="res-detail">&nbsp;</span>
+                    </div>
+                    <div class="res-meter">
+                        <div class="res-ring" style="--pct: @(_metrics.Disk.UsagePercent); --ring-color: var(--accent-teal);">
+                            <span class="res-pct">@_metrics.Disk.UsagePercent.ToString("F0")%</span>
+                        </div>
+                        <span class="res-name">Disk</span>
+                        <span class="res-detail">&nbsp;</span>
+                    </div>
+                    @if (_metrics.Gpu is not null)
+                    {
+                        <div class="res-meter">
+                            <div class="res-ring" style="--pct: @(_metrics.Gpu.UsagePercent); --ring-color: var(--accent-amber);">
+                                <span class="res-pct">@_metrics.Gpu.UsagePercent.ToString("F0")%</span>
+                            </div>
+                            <span class="res-name">GPU</span>
+                            <span class="res-detail">@_metrics.Gpu.TemperatureCelsius.ToString("F0")°C</span>
+                        </div>
+                    }
+                </div>
+            </section>
+        }
+    }
+</div>
+
+@code {
+    private bool _isLoading = true;
+    private AimranDataScienceLab.Engine.EngineSnapshot _snapshot = new();
+    private ResourceMetrics? _metrics;
+    private EngineHealthStatus? _pythonHealth;
+    private EngineHealthStatus? _rustHealth;
+    private EngineHealthStatus? _rHealth;
+    private bool _pythonHealthy;
+    private bool _rustHealthy;
+    private bool _rHealthy;
+    private int _extensionCount;
+    private string _greeting = "Welcome back";
+    private CancellationTokenSource? _cts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _greeting = DateTime.Now.Hour switch
+        {
+            < 12 => "Good morning",
+            < 17 => "Good afternoon",
+            _ => "Good evening"
+        };
+
+        await LoadDataAsync();
+        StartRefreshLoop();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        var snapshotTask = Engine.GetSnapshotAsync();
+        var metricsTask = ResourceMonitor.GetCurrentMetricsAsync();
+        var healthTask = Gateway.CheckHealthAsync();
+
+        await Task.WhenAll(snapshotTask, metricsTask, healthTask);
+
+        var snapshotResult = await snapshotTask;
+        if (snapshotResult.Succeeded)
+            _snapshot = snapshotResult.Value!;
+
+        _metrics = await metricsTask;
+
+        var healthReport = await healthTask;
+        _pythonHealth = healthReport.PythonEngine;
+        _rustHealth = healthReport.RustEngine;
+        _rHealth = healthReport.REngine;
+        _pythonHealthy = _pythonHealth.IsHealthy;
+        _rustHealthy = _rustHealth.IsHealthy;
+        _rHealthy = _rHealth.IsHealthy;
+
+        _extensionCount = ExtensionManager.GetAllExtensions().Count;
+        _isLoading = false;
+    }
+
+    private void StartRefreshLoop()
+    {
+        _cts = new CancellationTokenSource();
+        _ = Task.Run(async () =>
+        {
+            var timer = new PeriodicTimer(TimeSpan.FromSeconds(3));
+            while (await timer.WaitForNextTickAsync(_cts.Token))
+            {
+                await LoadDataAsync();
+                await InvokeAsync(StateHasChanged);
+            }
+        }, _cts.Token);
+    }
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+    }
+}

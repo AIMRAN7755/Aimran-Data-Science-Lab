@@ -1,0 +1,652 @@
+---
+# AIMRAN Full Stack Kubernetes Deployment
+# Deploy all infrastructure and role-specific services
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aimran
+  labels:
+    name: aimran
+
+---
+# PostgreSQL StatefulSet
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: aimran
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: aimran
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_USER
+          value: "aimran"
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: password
+        - name: POSTGRES_DB
+          value: "aimran_data"
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -U aimran
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -U aimran
+          initialDelaySeconds: 5
+          periodSeconds: 10
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-storage
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 20Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: aimran
+spec:
+  ports:
+  - port: 5432
+    targetPort: 5432
+  selector:
+    app: postgres
+  clusterIP: None
+
+---
+# Service Registry Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service-registry
+  namespace: aimran
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-registry
+  template:
+    metadata:
+      labels:
+        app: service-registry
+        tier: infrastructure
+    spec:
+      containers:
+      - name: service-registry
+        image: aimran/service-registry:latest
+        ports:
+        - containerPort: 5000
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "Production"
+        - name: ServiceRegistry__Port
+          value: "5000"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 500m
+            memory: 512Mi
+          limits:
+            cpu: 1
+            memory: 1Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-registry
+  namespace: aimran
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5000
+    targetPort: 5000
+  selector:
+    app: service-registry
+
+---
+# IPC Broker StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ipc-broker
+  namespace: aimran
+spec:
+  serviceName: ipc-broker
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ipc-broker
+  template:
+    metadata:
+      labels:
+        app: ipc-broker
+        tier: infrastructure
+    spec:
+      containers:
+      - name: ipc-broker
+        image: aimran/ipc-broker:latest
+        ports:
+        - containerPort: 5000
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "Production"
+        - name: IPCBroker__Port
+          value: "5000"
+        - name: IPCBroker__MaxConnections
+          value: "5000"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 1000m
+            memory: 2Gi
+          limits:
+            cpu: 2
+            memory: 4Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ipc-broker
+  namespace: aimran
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5000
+    targetPort: 5000
+  selector:
+    app: ipc-broker
+
+---
+# Service Gateway Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service-gateway
+  namespace: aimran
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-gateway
+  template:
+    metadata:
+      labels:
+        app: service-gateway
+        tier: infrastructure
+    spec:
+      containers:
+      - name: service-gateway
+        image: aimran/service-gateway:latest
+        ports:
+        - containerPort: 5000
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "Production"
+        - name: ServiceGateway__Port
+          value: "5000"
+        - name: Registry__Url
+          value: "http://service-registry:5000"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 500m
+            memory: 512Mi
+          limits:
+            cpu: 1
+            memory: 1Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-gateway
+  namespace: aimran
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 5000
+    protocol: TCP
+  selector:
+    app: service-gateway
+
+---
+# Monitoring Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: monitoring-service
+  namespace: aimran
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: monitoring-service
+  template:
+    metadata:
+      labels:
+        app: monitoring-service
+        tier: infrastructure
+    spec:
+      containers:
+      - name: monitoring-service
+        image: aimran/monitoring-service:latest
+        ports:
+        - containerPort: 5000
+        - containerPort: 9090
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "Production"
+        - name: Monitoring__Port
+          value: "5000"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 500m
+            memory: 512Mi
+          limits:
+            cpu: 1
+            memory: 1Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: monitoring-service
+  namespace: aimran
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5000
+    targetPort: 5000
+    name: grpc
+  - port: 9090
+    targetPort: 9090
+    name: prometheus
+  selector:
+    app: monitoring-service
+
+---
+# Analyst Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analyst-service
+  namespace: aimran
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: analyst-service
+  template:
+    metadata:
+      labels:
+        app: analyst-service
+        role: analyst
+    spec:
+      containers:
+      - name: analyst-service
+        image: aimran/analyst-service:latest
+        ports:
+        - containerPort: 5000
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "Production"
+        - name: AnalystService__Port
+          value: "5000"
+        - name: Registry__Url
+          value: "http://service-registry:5000"
+        - name: IPCBroker__Url
+          value: "http://ipc-broker:5000"
+        - name: Database__ConnectionString
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: connectionString
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 500m
+            memory: 512Mi
+          limits:
+            cpu: 2
+            memory: 2Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: analyst-service
+  namespace: aimran
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5000
+    targetPort: 5000
+  selector:
+    app: analyst-service
+
+---
+# Scientist Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scientist-service
+  namespace: aimran
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: scientist-service
+  template:
+    metadata:
+      labels:
+        app: scientist-service
+        role: scientist
+    spec:
+      containers:
+      - name: scientist-service
+        image: aimran/scientist-service:latest
+        ports:
+        - containerPort: 5000
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "Production"
+        - name: ScientistService__Port
+          value: "5000"
+        - name: Registry__Url
+          value: "http://service-registry:5000"
+        - name: IPCBroker__Url
+          value: "http://ipc-broker:5000"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 2000m
+            memory: 4Gi
+          limits:
+            cpu: 4
+            memory: 8Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: scientist-service
+  namespace: aimran
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5000
+    targetPort: 5000
+  selector:
+    app: scientist-service
+
+---
+# Engineer Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: engineer-service
+  namespace: aimran
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: engineer-service
+  template:
+    metadata:
+      labels:
+        app: engineer-service
+        role: engineer
+    spec:
+      containers:
+      - name: engineer-service
+        image: aimran/engineer-service:latest
+        ports:
+        - containerPort: 5000
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "Production"
+        - name: EngineerService__Port
+          value: "5000"
+        - name: Registry__Url
+          value: "http://service-registry:5000"
+        - name: IPCBroker__Url
+          value: "http://ipc-broker:5000"
+        - name: Database__ConnectionString
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: connectionString
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 1000m
+            memory: 2Gi
+          limits:
+            cpu: 2
+            memory: 4Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: engineer-service
+  namespace: aimran
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5000
+    targetPort: 5000
+  selector:
+    app: engineer-service
+
+---
+# AI Engineer Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-engineer-service
+  namespace: aimran
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ai-engineer-service
+  template:
+    metadata:
+      labels:
+        app: ai-engineer-service
+        role: ai-engineer
+    spec:
+      containers:
+      - name: ai-engineer-service
+        image: aimran/ai-engineer-service:latest
+        ports:
+        - containerPort: 5000
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "Production"
+        - name: AIEngineerService__Port
+          value: "5000"
+        - name: Registry__Url
+          value: "http://service-registry:5000"
+        - name: IPCBroker__Url
+          value: "http://ipc-broker:5000"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 2000m
+            memory: 4Gi
+          limits:
+            cpu: 4
+            memory: 8Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-engineer-service
+  namespace: aimran
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5000
+    targetPort: 5000
+  selector:
+    app: ai-engineer-service
+
+---
+# Ingress for external access
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aimran-ingress
+  namespace: aimran
+spec:
+  rules:
+  - host: aimran.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: service-gateway
+            port:
+              number: 5000

@@ -1,0 +1,194 @@
+<MudNavMenu Class="nav-menu-enhanced">
+    <!-- Quick Access Section -->
+    <div class="nav-section-header">
+        <span class="section-title">Quick Access</span>
+    </div>
+
+    <!-- Dashboard Section -->
+    <MudNavLink Href="/dashboard" Icon="@Icons.Material.Filled.Dashboard" Match="NavLinkMatch.Prefix" Class="nav-link-primary">
+        <MudIcon Icon="@Icons.Material.Filled.Dashboard" Class="me-3" />
+        Dashboard
+    </MudNavLink>
+
+    <!-- Projects Section -->
+    <MudNavLink Href="/projects" Icon="@Icons.Material.Filled.FolderSpecial" Match="NavLinkMatch.Prefix" Class="nav-link-primary">
+        <MudIcon Icon="@Icons.Material.Filled.FolderSpecial" Class="me-3" />
+        Projects
+    </MudNavLink>
+
+    <MudDivider Class="my-3" />
+
+    <!-- Data Science Core Features -->
+    <MudNavGroup Title="Data Science" Icon="@Icons.Material.Filled.Science" Expanded="true" Class="nav-group-enhanced">
+        <PermissionGuard RequiredPermission="ViewDatasets">
+            <MudNavLink Href="/datasets" Icon="@Icons.Material.Filled.TableChart" IconColor="Color.Info" Class="nav-link-sub">
+                <MudIcon Icon="@Icons.Material.Filled.TableChart" Size="Size.Small" Class="me-2" />
+                Datasets
+                <MudChip T="string" Size="Size.Small" Class="ms-auto" Variant="Variant.Text" Color="Color.Info">v2</MudChip>
+            </MudNavLink>
+        </PermissionGuard>
+
+        <PermissionGuard RequiredPermission="ViewExperiments">
+            <MudNavLink Href="/data-cleaning" Icon="@Icons.Material.Filled.DeleteSweep" IconColor="Color.Info" Class="nav-link-sub">
+                <MudIcon Icon="@Icons.Material.Filled.DeleteSweep" Size="Size.Small" Class="me-2" />
+                Data Cleaning
+            </MudNavLink>
+        </PermissionGuard>
+
+        <PermissionGuard RequiredPermission="ViewExperiments">
+            <MudNavLink Href="/experiments" Icon="@Icons.Material.Filled.Psychology" IconColor="Color.Info" Class="nav-link-sub">
+                <MudIcon Icon="@Icons.Material.Filled.Psychology" Size="Size.Small" Class="me-2" />
+                Experiments
+            </MudNavLink>
+        </PermissionGuard>
+
+        <PermissionGuard RequiredPermission="ViewModels">
+            <MudNavLink Href="/models" Icon="@Icons.Material.Filled.AutoAwesome" IconColor="Color.Info" Class="nav-link-sub">
+                <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Size="Size.Small" Class="me-2" />
+                Models
+            </MudNavLink>
+        </PermissionGuard>
+
+        <MudNavLink Href="/visualizations" Icon="@Icons.Material.Filled.BarChart" IconColor="Color.Info" Class="nav-link-sub">
+            <MudIcon Icon="@Icons.Material.Filled.BarChart" Size="Size.Small" Class="me-2" />
+            Visualizations
+        </MudNavLink>
+    </MudNavGroup>
+
+    <!-- Development Section -->
+    <MudNavGroup Title="Development" Icon="@Icons.Material.Filled.Code" Expanded="false" Class="nav-group-enhanced">
+        <PermissionGuard RequiredPermission="ExecuteNotebook">
+            <MudNavLink Href="/notebook" Icon="@Icons.Material.Filled.Assessment" IconColor="Color.Success" Class="nav-link-sub">
+                <MudIcon Icon="@Icons.Material.Filled.Assessment" Size="Size.Small" Class="me-2" />
+                Notebooks
+            </MudNavLink>
+        </PermissionGuard>
+
+        <PermissionGuard RequiredPermission="ExecutePython">
+            <MudNavLink Href="/code-editor" Icon="@Icons.Material.Filled.Edit" IconColor="Color.Success" Class="nav-link-sub">
+                <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Class="me-2" />
+                Code Editor
+            </MudNavLink>
+        </PermissionGuard>
+
+        <MudNavLink Href="/package-manager" Icon="@Icons.Material.Filled.Extension" IconColor="Color.Success" Class="nav-link-sub">
+            <MudIcon Icon="@Icons.Material.Filled.Extension" Size="Size.Small" Class="me-2" />
+            Packages
+        </MudNavLink>
+    </MudNavGroup>
+
+    <!-- Deployment & Operations -->
+    <MudNavGroup Title="Deployment" Icon="@Icons.Material.Filled.CloudUpload" Expanded="false" Class="nav-group-enhanced">
+        <PermissionGuard RequiredPermission="ViewPipelines">
+            <MudNavLink Href="/pipelines" Icon="@Icons.Material.Filled.Timeline" IconColor="Color.Warning" Class="nav-link-sub">
+                <MudIcon Icon="@Icons.Material.Filled.Timeline" Size="Size.Small" Class="me-2" />
+                Pipelines
+            </MudNavLink>
+        </PermissionGuard>
+
+        <PermissionGuard RequiredPermission="ViewDeployments">
+            <MudNavLink Href="/deployments" Icon="@Icons.Material.Filled.Rocket" IconColor="Color.Warning" Class="nav-link-sub">
+                <MudIcon Icon="@Icons.Material.Filled.Rocket" Size="Size.Small" Class="me-2" />
+                Deployments
+            </MudNavLink>
+        </PermissionGuard>
+
+        <PermissionGuard RequiredPermission="MonitorPerformance">
+            <MudNavLink Href="/monitoring" Icon="@Icons.Material.Filled.Dashboard" IconColor="Color.Warning" Class="nav-link-sub">
+                <MudIcon Icon="@Icons.Material.Filled.Dashboard" Size="Size.Small" Class="me-2" />
+                Monitoring
+            </MudNavLink>
+        </PermissionGuard>
+    </MudNavGroup>
+
+    <!-- Collaboration -->
+    <PermissionGuard RequiredPermission="ViewCollaborationDashboard">
+        <MudNavLink Href="/collaboration" Icon="@Icons.Material.Filled.Handshake" Match="NavLinkMatch.Prefix" Class="nav-link-primary">
+            <MudIcon Icon="@Icons.Material.Filled.Handshake" Class="me-3" />
+            Collaboration
+        </MudNavLink>
+    </PermissionGuard>
+
+    <MudDivider Class="my-3" />
+
+    <!-- Admin Section (Admin role only) -->
+    @if (userRole == "Admin")
+    {
+        <MudNavGroup Title="Administration" Icon="@Icons.Material.Filled.AdminPanelSettings" Expanded="false" Class="nav-group-enhanced nav-group-admin">
+            <PermissionGuard RequiredPermission="ManageUsers">
+                <MudNavLink Href="/admin/users" Icon="@Icons.Material.Filled.People" IconColor="Color.Error" Class="nav-link-sub">
+                    <MudIcon Icon="@Icons.Material.Filled.People" Size="Size.Small" Class="me-2" />
+                    Users & Roles
+                </MudNavLink>
+            </PermissionGuard>
+
+            <PermissionGuard RequiredPermission="ViewAuditLogs">
+                <MudNavLink Href="/admin/audit-logs" Icon="@Icons.Material.Filled.History" IconColor="Color.Error" Class="nav-link-sub">
+                    <MudIcon Icon="@Icons.Material.Filled.History" Size="Size.Small" Class="me-2" />
+                    Audit Logs
+                </MudNavLink>
+            </PermissionGuard>
+
+            <PermissionGuard RequiredPermission="ManageSecrets">
+                <MudNavLink Href="/admin/security" Icon="@Icons.Material.Filled.Security" IconColor="Color.Error" Class="nav-link-sub">
+                    <MudIcon Icon="@Icons.Material.Filled.Security" Size="Size.Small" Class="me-2" />
+                    Security
+                </MudNavLink>
+            </PermissionGuard>
+
+            <PermissionGuard RequiredPermission="ConfigureSystem">
+                <MudNavLink Href="/admin/system" Icon="@Icons.Material.Filled.Settings" IconColor="Color.Error" Class="nav-link-sub">
+                    <MudIcon Icon="@Icons.Material.Filled.Settings" Size="Size.Small" Class="me-2" />
+                    System Settings
+                </MudNavLink>
+            </PermissionGuard>
+        </MudNavGroup>
+
+        <MudDivider Class="my-3" />
+    }
+
+    <!-- Settings & Help -->
+    <MudNavLink Href="/settings" Icon="@Icons.Material.Filled.Settings" Match="NavLinkMatch.Prefix" Class="nav-link-footer">
+        <MudIcon Icon="@Icons.Material.Filled.Settings" Class="me-3" />
+        Settings
+    </MudNavLink>
+
+    <MudNavLink Href="/help" Icon="@Icons.Material.Filled.Help" Match="NavLinkMatch.Prefix" Class="nav-link-footer">
+        <MudIcon Icon="@Icons.Material.Filled.Help" Class="me-3" />
+        Help & Documentation
+    </MudNavLink>
+</MudNavMenu>
+
+@code {
+    [Parameter]
+    public bool DrawerOpen { get; set; } = true;
+
+    [Parameter]
+    public EventCallback<bool> DrawerOpenChanged { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private string userRole = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserRole();
+    }
+
+    private async Task LoadUserRole()
+    {
+        if (AuthenticationStateTask == null)
+            return;
+
+        var authState = await AuthenticationStateTask;
+        var user = authState.User;
+
+        if (user?.Identity?.IsAuthenticated == true)
+        {
+            var roleClaim = user.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+            userRole = roleClaim ?? "";
+        }
+    }
+}
+

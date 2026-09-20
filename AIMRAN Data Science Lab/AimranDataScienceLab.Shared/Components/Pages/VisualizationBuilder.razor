@@ -1,0 +1,236 @@
+@page "/visualization"
+@inject IDatasetService DatasetService
+@inject IVisualizationService VisualizationService
+
+<PageTitle>Visualization Builder - AIMRAN Data Science Lab</PageTitle>
+
+<div class="viz-page">
+    <header class="viz-toolbar">
+        <div class="toolbar-left">
+            <h2>📈 Visualization Builder</h2>
+        </div>
+    </header>
+
+    <div class="viz-layout">
+        <!-- Config Panel (left) -->
+        <div class="config-panel">
+            <section class="config-section">
+                <h3>Dataset</h3>
+                <select class="form-select" @onchange="OnDatasetChanged">
+                    <option value="">Select dataset...</option>
+                    @foreach (var ds in _datasets)
+                    {
+                        <option value="@ds.Id">@ds.Name</option>
+                    }
+                </select>
+            </section>
+
+            @if (_selectedDataset is not null && _preview is not null)
+            {
+                <section class="config-section">
+                    <h3>Chart Type</h3>
+                    <div class="chart-type-grid">
+                        @foreach (var ct in _chartTypes)
+                        {
+                            <button class="chart-type-btn @(_chartType == ct.Key ? "selected" : "")"
+                                    @onclick="() => _chartType = ct.Key">
+                                <span class="ct-icon">@ct.Icon</span>
+                                <span class="ct-name">@ct.Name</span>
+                            </button>
+                        }
+                    </div>
+                </section>
+
+                <section class="config-section">
+                    <h3>Columns</h3>
+                    @if (NeedsXY)
+                    {
+                        <div class="form-group">
+                            <label>X Axis</label>
+                            <select class="form-select" @bind="_xColumn">
+                                <option value="">Select column...</option>
+                                @foreach (var col in _preview.Columns)
+                                {
+                                    <option value="@col">@col</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Y Axis</label>
+                            <select class="form-select" @bind="_yColumn">
+                                <option value="">Select column...</option>
+                                @foreach (var col in _preview.Columns)
+                                {
+                                    <option value="@col">@col</option>
+                                }
+                            </select>
+                        </div>
+                    }
+                    else if (_chartType is "histogram")
+                    {
+                        <div class="form-group">
+                            <label>Column</label>
+                            <select class="form-select" @bind="_xColumn">
+                                <option value="">Select column...</option>
+                                @foreach (var col in _preview.Columns)
+                                {
+                                    <option value="@col">@col</option>
+                                }
+                            </select>
+                        </div>
+                    }
+                </section>
+
+                <section class="config-section">
+                    <h3>Options</h3>
+                    <div class="form-group">
+                        <label>Title</label>
+                        <input type="text" class="form-input" @bind="_chartTitle" placeholder="Chart title..." />
+                    </div>
+                </section>
+
+                <button class="btn btn-primary btn-lg" @onclick="GenerateChart" disabled="@(!CanGenerate || _isGenerating)">
+                    @(_isGenerating ? "⏳ Generating..." : "🎨 Generate Chart")
+                </button>
+            }
+        </div>
+
+        <!-- Chart Display (center/right) -->
+        <div class="chart-panel">
+            @if (_isGenerating)
+            {
+                <div class="chart-placeholder">
+                    <div class="spinner"></div>
+                    <p>Generating visualization...</p>
+                </div>
+            }
+            else if (_result is not null)
+            {
+                <div class="chart-display">
+                    <img src="data:image/png;base64,@_result.FigureBase64" alt="@_result.ChartType chart" />
+                </div>
+
+                <!-- Generated Python Code -->
+                <div class="code-section">
+                    <div class="code-header">
+                        <span>🐍 Python Code</span>
+                        <button class="btn-icon-sm" title="Copy" @onclick="CopyCode">📋</button>
+                    </div>
+                    <pre class="generated-code">@_result.PythonCode</pre>
+                </div>
+            }
+            else
+            {
+                <div class="chart-placeholder">
+                    <div class="placeholder-icon">📊</div>
+                    <p>Configure your chart and click Generate</p>
+                    <small>Select a dataset, chart type, and columns to get started.</small>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <div class="error-message">❌ @_errorMessage</div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Dataset> _datasets = [];
+    private Dataset? _selectedDataset;
+    private DatasetPreview? _preview;
+    private VisualizationResult? _result;
+    private bool _isGenerating;
+    private string _errorMessage = "";
+
+    // Config
+    private string _chartType = "scatter";
+    private string _xColumn = "";
+    private string _yColumn = "";
+    private string _chartTitle = "";
+
+    private static readonly List<ChartTypeOption> _chartTypes =
+    [
+        new("scatter", "Scatter", "⬡"),
+        new("line", "Line", "📉"),
+        new("bar", "Bar", "📊"),
+        new("histogram", "Histogram", "📶"),
+        new("box", "Box Plot", "📦"),
+        new("heatmap", "Heatmap", "🔥"),
+        new("correlation", "Correlation", "🔗"),
+    ];
+
+    private bool NeedsXY => _chartType is "scatter" or "line" or "bar";
+
+    private bool CanGenerate =>
+        _selectedDataset is not null &&
+        !string.IsNullOrEmpty(_chartType) &&
+        (_chartType is "heatmap" or "correlation" or "box" ||
+         (_chartType is "histogram" && !string.IsNullOrEmpty(_xColumn)) ||
+         (NeedsXY && !string.IsNullOrEmpty(_xColumn) && !string.IsNullOrEmpty(_yColumn)));
+
+    protected override async Task OnInitializedAsync()
+    {
+        _datasets = (await DatasetService.GetAllAsync()).ToList();
+    }
+
+    private async Task OnDatasetChanged(ChangeEventArgs e)
+    {
+        var idStr = e.Value?.ToString();
+        if (string.IsNullOrEmpty(idStr) || !Guid.TryParse(idStr, out var id))
+        {
+            _selectedDataset = null;
+            _preview = null;
+            return;
+        }
+
+        _selectedDataset = _datasets.FirstOrDefault(d => d.Id == id);
+        if (_selectedDataset is not null)
+        {
+            _preview = await DatasetService.GetPreviewAsync(_selectedDataset.Id, 10);
+            _xColumn = "";
+            _yColumn = "";
+            _result = null;
+        }
+    }
+
+    private async Task GenerateChart()
+    {
+        if (!CanGenerate || _selectedDataset is null) return;
+
+        _isGenerating = true;
+        _errorMessage = "";
+        _result = null;
+        StateHasChanged();
+
+        try
+        {
+            var request = new VisualizationRequest
+            {
+                DatasetPath = _selectedDataset.FilePath,
+                ChartType = _chartType,
+                XColumn = string.IsNullOrEmpty(_xColumn) ? null : _xColumn,
+                YColumn = string.IsNullOrEmpty(_yColumn) ? null : _yColumn,
+                Title = string.IsNullOrEmpty(_chartTitle) ? null : _chartTitle
+            };
+
+            _result = await VisualizationService.GenerateChartAsync(request);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _isGenerating = false;
+        }
+    }
+
+    private void CopyCode()
+    {
+        // JS interop for clipboard would go here
+    }
+
+    private sealed record ChartTypeOption(string Key, string Name, string Icon);
+}

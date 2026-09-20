@@ -1,0 +1,244 @@
+@page "/packages"
+@inject IPackageManagerService PackageMgr
+
+<PageTitle>Packages - AIMRAN Data Science Lab</PageTitle>
+
+<div class="page-container">
+    <header class="page-header">
+        <div class="header-content">
+            <h1>📦 Package Manager</h1>
+            <p>Manage Python libraries for your data science environment</p>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-secondary" @onclick="RefreshPackages" disabled="@_isLoading">
+                🔄 Refresh
+            </button>
+        </div>
+    </header>
+
+    <!-- Install Section -->
+    <section class="install-section">
+        <div class="install-form">
+            <input type="text" @bind="_installPackageName" @bind:event="oninput"
+                   placeholder="Package name (e.g., scikit-learn)" class="install-input" />
+            <input type="text" @bind="_installVersion"
+                   placeholder="Version (optional)" class="version-input" />
+            <button class="btn btn-success" @onclick="InstallPackage" disabled="@(_isInstalling || string.IsNullOrWhiteSpace(_installPackageName))">
+                @(_isInstalling ? "⏳ Installing..." : "📥 Install")
+            </button>
+        </div>
+        @if (!string.IsNullOrEmpty(_actionMessage))
+        {
+            <div class="action-message @(_actionSuccess ? "success" : "error")">
+                @(_actionSuccess ? "✅" : "❌") @_actionMessage
+            </div>
+        }
+    </section>
+
+    <!-- Quick Install Buttons -->
+    <section class="quick-install">
+        <h3>⚡ Quick Install</h3>
+        <div class="quick-buttons">
+            @foreach (var pkg in _recommendedPackages)
+            {
+                var isInstalled = _packages.Any(p => p.Name.Equals(pkg.Name, StringComparison.OrdinalIgnoreCase));
+                <button class="quick-btn @(isInstalled ? "installed" : "")"
+                        @onclick="() => QuickInstall(pkg.Name)"
+                        disabled="@(isInstalled || _isInstalling)">
+                    <span class="quick-name">@pkg.Name</span>
+                    <span class="quick-desc">@pkg.Description</span>
+                    @if (isInstalled)
+                    {
+                        <span class="installed-badge">✓</span>
+                    }
+                </button>
+            }
+        </div>
+    </section>
+
+    <!-- Installed Packages -->
+    <section class="packages-section">
+        <div class="section-header">
+            <h3>📋 Installed Packages (@_filteredPackages.Count)</h3>
+            <input type="text" @bind="_searchText" @bind:event="oninput"
+                   placeholder="🔎 Search packages..." class="search-input" />
+        </div>
+
+        @if (_isLoading)
+        {
+            <div class="loading-state">
+                <div class="spinner"></div>
+                <p>Loading packages...</p>
+            </div>
+        }
+        else if (!_filteredPackages.Any())
+        {
+            <div class="empty-state">
+                <p>No packages found matching "@_searchText"</p>
+            </div>
+        }
+        else
+        {
+            <div class="package-grid">
+                @foreach (var pkg in _filteredPackages)
+                {
+                    <div class="package-card @(IsDataSciencePackage(pkg.Name) ? "ds-package" : "")">
+                        <div class="pkg-header">
+                            <span class="pkg-name">@pkg.Name</span>
+                            <span class="pkg-version">v@pkg.Version</span>
+                        </div>
+                        @if (IsDataSciencePackage(pkg.Name))
+                        {
+                            <span class="ds-badge">🔬 DS</span>
+                        }
+                        <div class="pkg-actions">
+                            <button class="btn-icon-sm danger" title="Uninstall"
+                                    @onclick="() => UninstallPackage(pkg.Name)"
+                                    disabled="@_isInstalling">🗑️</button>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    private List<PackageInfo> _packages = [];
+    private bool _isLoading = true;
+    private bool _isInstalling;
+
+    private string _installPackageName = "";
+    private string _installVersion = "";
+    private string _searchText = "";
+
+    private string _actionMessage = "";
+    private bool _actionSuccess;
+
+    private List<PackageInfo> _filteredPackages => string.IsNullOrWhiteSpace(_searchText)
+        ? _packages.OrderBy(p => p.Name).ToList()
+        : _packages.Where(p => p.Name.Contains(_searchText, StringComparison.OrdinalIgnoreCase))
+                    .OrderBy(p => p.Name).ToList();
+
+    private static readonly List<(string Name, string Description)> _recommendedPackages =
+    [
+        ("pandas", "Data manipulation & analysis"),
+        ("numpy", "Numerical computing"),
+        ("scikit-learn", "Machine learning"),
+        ("matplotlib", "Data visualization"),
+        ("seaborn", "Statistical visualization"),
+        ("xgboost", "Gradient boosting"),
+        ("torch", "Deep learning (PyTorch)"),
+        ("polars", "Fast DataFrames"),
+        ("scipy", "Scientific computing"),
+        ("statsmodels", "Statistical models"),
+        ("langchain", "LLM framework"),
+        ("transformers", "Hugging Face models"),
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshPackages();
+    }
+
+    private async Task RefreshPackages()
+    {
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            _packages = (await PackageMgr.ListPackagesAsync()).ToList();
+        }
+        catch (Exception ex)
+        {
+            _actionMessage = $"Failed to load packages: {ex.Message}";
+            _actionSuccess = false;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task InstallPackage()
+    {
+        if (string.IsNullOrWhiteSpace(_installPackageName)) return;
+
+        _isInstalling = true;
+        _actionMessage = "";
+        StateHasChanged();
+
+        try
+        {
+            var version = string.IsNullOrWhiteSpace(_installVersion) ? null : _installVersion;
+            var result = await PackageMgr.InstallAsync(_installPackageName, version);
+            _actionSuccess = result.Success;
+            _actionMessage = result.Success
+                ? $"Successfully installed {result.PackageName}"
+                : $"Failed: {result.Message}";
+
+            if (result.Success)
+            {
+                _installPackageName = "";
+                _installVersion = "";
+                await RefreshPackages();
+            }
+        }
+        catch (Exception ex)
+        {
+            _actionSuccess = false;
+            _actionMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _isInstalling = false;
+        }
+    }
+
+    private async Task QuickInstall(string packageName)
+    {
+        _installPackageName = packageName;
+        _installVersion = "";
+        await InstallPackage();
+    }
+
+    private async Task UninstallPackage(string packageName)
+    {
+        _isInstalling = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await PackageMgr.UninstallAsync(packageName);
+            _actionSuccess = result.Success;
+            _actionMessage = result.Success
+                ? $"Uninstalled {result.PackageName}"
+                : $"Failed: {result.Message}";
+
+            if (result.Success)
+                await RefreshPackages();
+        }
+        catch (Exception ex)
+        {
+            _actionSuccess = false;
+            _actionMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _isInstalling = false;
+        }
+    }
+
+    private static bool IsDataSciencePackage(string name)
+    {
+        var dsPackages = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "pandas", "numpy", "scikit-learn", "matplotlib", "seaborn",
+            "scipy", "torch", "tensorflow", "xgboost", "lightgbm",
+            "polars", "statsmodels", "langchain", "transformers",
+            "datasets", "accelerate", "onnxruntime", "pydantic"
+        };
+        return dsPackages.Contains(name);
+    }
+}

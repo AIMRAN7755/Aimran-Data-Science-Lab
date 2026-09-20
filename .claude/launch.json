@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": [
+        "run",
+        "--project",
+        "AIMRAN Data Science Lab/AimranDataScienceLab.Web/AimranDataScienceLab.Web.csproj",
+        "--launch-profile",
+        "http"
+      ],
+      "port": 5290
+    }
+  ]
+}

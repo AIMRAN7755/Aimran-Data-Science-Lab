@@ -1,0 +1,151 @@
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.H5" Class="font-weight-bold">Appearance</MudText>
+    <MudText Typo="Typo.Body1" Style="color: var(--mud-palette-text-secondary);">Customize the look and feel of the application</MudText>
+
+    <MudPaper Elevation="0" Class="pa-4" Style="background-color: var(--mud-palette-background-grey);">
+        <MudStack Spacing="3">
+            <!-- Theme Selection -->
+            <MudStack>
+                <MudText Typo="Typo.Subtitle2" Class="font-weight-bold">Theme</MudText>
+
+                <MudStack Row="true" Spacing="2">
+                    <MudButton Variant="@(selectedTheme == "light" ? Variant.Filled : Variant.Outlined)" 
+                              Color="@(selectedTheme == "light" ? MudBlazor.Color.Primary : MudBlazor.Color.Default)"
+                              OnClick="@(() => selectedTheme = "light")"
+                              StartIcon="@Icons.Material.Filled.LightMode">
+                        Light
+                    </MudButton>
+                    <MudButton Variant="@(selectedTheme == "dark" ? Variant.Filled : Variant.Outlined)" 
+                              Color="@(selectedTheme == "dark" ? MudBlazor.Color.Primary : MudBlazor.Color.Default)"
+                              OnClick="@(() => selectedTheme = "dark")"
+                              StartIcon="@Icons.Material.Filled.DarkMode">
+                        Dark
+                    </MudButton>
+                    <MudButton Variant="@(selectedTheme == "auto" ? Variant.Filled : Variant.Outlined)" 
+                              Color="@(selectedTheme == "auto" ? MudBlazor.Color.Primary : MudBlazor.Color.Default)"
+                              OnClick="@(() => selectedTheme = "auto")"
+                              StartIcon="@Icons.Material.Filled.BrightnessAuto">
+                        Auto
+                    </MudButton>
+                </MudStack>
+            </MudStack>
+
+            <MudDivider />
+
+            <!-- Primary Color -->
+            <MudStack>
+                <MudText Typo="Typo.Subtitle2" Class="font-weight-bold">Primary Color</MudText>
+
+                <MudStack Row="true" Spacing="1">
+                    @foreach (var color in colors)
+                    {
+                        <MudButton Variant="@(primaryColor == color ? Variant.Filled : Variant.Outlined)" 
+                                  Color="@color"
+                                  OnClick="@(() => primaryColor = color)"
+                                  Style="width: 40px; height: 40px; min-width: 40px; padding: 0;">
+                        </MudButton>
+                    }
+                </MudStack>
+            </MudStack>
+
+            <MudDivider />
+
+            <!-- UI Density -->
+            <MudStack>
+                <MudText Typo="Typo.Subtitle2" Class="font-weight-bold">UI Density</MudText>
+
+                <MudSelect T="string" Value="@uiDensity" ValueChanged="@((string val) => uiDensity = val)" Variant="Variant.Outlined">
+                    <MudSelectItem Value="@("compact")">Compact</MudSelectItem>
+                    <MudSelectItem Value="@("normal")">Normal</MudSelectItem>
+                    <MudSelectItem Value="@("spacious")">Spacious</MudSelectItem>
+                </MudSelect>
+            </MudStack>
+
+            <MudDivider />
+
+            <!-- Animations -->
+            <MudStack>
+                <MudText Typo="Typo.Subtitle2" Class="font-weight-bold">Animations & Transitions</MudText>
+
+                <MudCheckBox Value="@enableAnimations" ValueChanged="@((bool val) => enableAnimations = val)" Label="Enable animations" />
+                <MudCheckBox Value="@enableTransitions" ValueChanged="@((bool val) => enableTransitions = val)" Label="Enable transitions" />
+                <MudCheckBox Value="@enableParticles" ValueChanged="@((bool val) => enableParticles = val)" Label="Enable particle effects" />
+            </MudStack>
+
+            <MudDivider />
+
+            <!-- Font Settings -->
+            <MudStack>
+                <MudText Typo="Typo.Subtitle2" Class="font-weight-bold">Typography</MudText>
+
+                <MudSelect T="string" Label="Font Family" Value="@fontFamily" ValueChanged="@((string val) => fontFamily = val)" Variant="Variant.Outlined">
+                    <MudSelectItem Value="@("inter")">Inter</MudSelectItem>
+                    <MudSelectItem Value="@("roboto")">Roboto</MudSelectItem>
+                    <MudSelectItem Value="@("system")">System Default</MudSelectItem>
+                    <MudSelectItem Value="@("monospace")">Monospace</MudSelectItem>
+                </MudSelect>
+
+                <MudSlider @bind-Value="@fontScale" Min="0.8" Max="1.5" Step="0.1" Variant="Variant.Outlined">
+                    Font Scale: @fontScale.ToString("F1")
+                </MudSlider>
+            </MudStack>
+
+            <MudDivider />
+
+            <!-- Border Radius -->
+            <MudStack>
+                <MudText Typo="Typo.Subtitle2" Class="font-weight-bold">Border Radius</MudText>
+
+                <MudSelect T="string" Value="@borderRadius" ValueChanged="@((string val) => borderRadius = val)" Variant="Variant.Outlined">
+                    <MudSelectItem Value="@("rounded-none")">None</MudSelectItem>
+                    <MudSelectItem Value="@("rounded-sm")">Small</MudSelectItem>
+                    <MudSelectItem Value="@("rounded-md")">Medium</MudSelectItem>
+                    <MudSelectItem Value="@("rounded-lg")">Large</MudSelectItem>
+                    <MudSelectItem Value="@("rounded-full")">Full</MudSelectItem>
+                </MudSelect>
+            </MudStack>
+
+            <MudDivider />
+
+            <!-- Action Buttons -->
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Filled" Color="MudBlazor.Color.Primary" OnClick="SaveAppearance">Save Changes</MudButton>
+                <MudButton Variant="Variant.Outlined" OnClick="ResetAppearance">Reset to Default</MudButton>
+            </MudStack>
+        </MudStack>
+    </MudPaper>
+</MudStack>
+
+@code {
+    private string selectedTheme = "auto";
+    private MudBlazor.Color primaryColor = MudBlazor.Color.Primary;
+    private List<MudBlazor.Color> colors = new() { MudBlazor.Color.Primary, MudBlazor.Color.Secondary, MudBlazor.Color.Success, MudBlazor.Color.Error, MudBlazor.Color.Warning, MudBlazor.Color.Info };
+    private string uiDensity = "normal";
+    private bool enableAnimations = true;
+    private bool enableTransitions = true;
+    private bool enableParticles = false;
+    private string fontFamily = "inter";
+    private double fontScale = 1.0;
+    private string borderRadius = "rounded-md";
+
+    private async Task SaveAppearance()
+    {
+        // TODO: Implement save appearance logic
+        await Task.CompletedTask;
+    }
+
+    private async Task ResetAppearance()
+    {
+        selectedTheme = "auto";
+        primaryColor = MudBlazor.Color.Primary;
+        uiDensity = "normal";
+        enableAnimations = true;
+        enableTransitions = true;
+        enableParticles = false;
+        fontFamily = "inter";
+        fontScale = 1.0;
+        borderRadius = "rounded-md";
+        await Task.CompletedTask;
+    }
+}

@@ -1,0 +1,419 @@
+@page "/code-editor"
+@inject IPythonExecutionService PythonExecution
+@inject IRExecutionService RExecution
+@inject IJSRuntime JS
+
+<PageTitle>Code Editor - AIMRAN Data Science Lab</PageTitle>
+
+<div class="editor-page">
+    <header class="editor-toolbar">
+        <div class="toolbar-left">
+            <select class="lang-select" @bind="_selectedLanguage" @bind:after="OnLanguageChanged">
+                <option value="python">🐍 Python</option>
+                <option value="r">📊 R</option>
+                <option value="sql">🗃️ SQL</option>
+            </select>
+            <span class="toolbar-divider"></span>
+            <span class="line-count">@_code.Split('\n').Length lines</span>
+        </div>
+        <div class="toolbar-right">
+            <button class="btn btn-run" @onclick="RunCode" disabled="@_isRunning">
+                @if (_isRunning)
+                {
+                    <span>⏳ Running…</span>
+                }
+                else
+                {
+                    <span>▶ Run</span>
+                    <kbd>Ctrl+Enter</kbd>
+                }
+            </button>
+            <button class="btn btn-secondary" @onclick="ClearOutput">Clear</button>
+            <select class="template-select" @onchange="LoadTemplate">
+                <option value="">Templates…</option>
+                @if (_selectedLanguage == "python")
+                {
+                    <option value="pandas">Pandas DataFrame</option>
+                    <option value="numpy">NumPy Arrays</option>
+                    <option value="matplotlib">Matplotlib Plot</option>
+                    <option value="sklearn">Scikit-Learn Model</option>
+                    <option value="seaborn">Seaborn Visualization</option>
+                    <option value="data-clean">Data Cleaning</option>
+                }
+                else if (_selectedLanguage == "r")
+                {
+                    <option value="r-basic">R Basics</option>
+                    <option value="r-ggplot">ggplot2 Chart</option>
+                    <option value="r-stats">Statistical Analysis</option>
+                    <option value="r-dplyr">dplyr Pipeline</option>
+                }
+                else
+                {
+                    <option value="sql-select">SELECT Query</option>
+                    <option value="sql-join">JOIN Query</option>
+                }
+            </select>
+        </div>
+    </header>
+
+    <div class="editor-layout">
+        <div class="editor-panel">
+            <div class="panel-label">
+                <span>@GetLanguageLabel()</span>
+            </div>
+            <textarea class="code-textarea"
+                      @bind="_code"
+                      @bind:event="oninput"
+                      spellcheck="false"
+                      placeholder="@GetPlaceholder()">
+            </textarea>
+        </div>
+
+        <div class="output-panel">
+            <div class="panel-label">
+                <span>Output</span>
+                @if (_lastResult is not null)
+                {
+                    <small class="@(_lastResult.IsSuccess ? "success" : "error")">
+                        @(_lastResult.IsSuccess ? "✅" : "❌") @(_lastResult.ExecutionTimeSeconds.ToString("F3"))s
+                    </small>
+                }
+            </div>
+            <div class="output-content">
+                @if (_lastResult is null && !_isRunning)
+                {
+                    <div class="output-placeholder">Press <kbd>Ctrl+Enter</kbd> or click <strong>Run</strong> to execute.</div>
+                }
+                else if (_isRunning)
+                {
+                    <div class="output-placeholder"><div class="spinner-sm"></div> Executing @_selectedLanguage code…</div>
+                }
+                else if (_lastResult is not null)
+                {
+                    @if (!string.IsNullOrEmpty(_lastResult.Stdout))
+                    {
+                        <pre class="stdout">@_lastResult.Stdout</pre>
+                    }
+                    @if (!string.IsNullOrEmpty(_lastResult.Stderr))
+                    {
+                        <pre class="stderr">@_lastResult.Stderr</pre>
+                    }
+                    @if (_lastResult.HasFigure && !string.IsNullOrEmpty(_lastResult.FigureBase64))
+                    {
+                        <div class="figure-output">
+                            <img src="data:image/png;base64,@_lastResult.FigureBase64" alt="Plot output" />
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string _selectedLanguage = "python";
+
+    private string _code = """
+        import pandas as pd
+        import numpy as np
+
+        # Sample data
+        data = {
+            'Name': ['Alice', 'Bob', 'Charlie', 'Diana', 'Eve'],
+            'Age': [25, 30, 35, 28, 32],
+            'Salary': [50000, 60000, 75000, 55000, 70000]
+        }
+
+        df = pd.DataFrame(data)
+        print(df)
+        print()
+        print(df.describe())
+        """;
+
+    private CodeExecutionResult? _lastResult;
+    private bool _isRunning;
+
+    private async Task RunCode()
+    {
+        if (_isRunning || string.IsNullOrWhiteSpace(_code))
+            return;
+
+        _isRunning = true;
+        _lastResult = null;
+        StateHasChanged();
+
+        try
+        {
+            _lastResult = _selectedLanguage switch
+            {
+                "r" => await RExecution.ExecuteAsync(_code),
+                _ => await PythonExecution.ExecuteAsync(_code)
+            };
+        }
+        catch (Exception ex)
+        {
+            _lastResult = new CodeExecutionResult
+            {
+                Stdout = "",
+                Stderr = $"Connection error: {ex.Message}",
+                ExitCode = -1,
+                ExecutionTimeSeconds = 0
+            };
+        }
+        finally
+        {
+            _isRunning = false;
+        }
+    }
+
+    private void ClearOutput() => _lastResult = null;
+
+    private void OnLanguageChanged()
+    {
+        _code = _selectedLanguage switch
+        {
+            "r" => """
+                # R Statistical Computing
+                data <- data.frame(
+                  Name = c("Alice", "Bob", "Charlie"),
+                  Age = c(25, 30, 35),
+                  Score = c(85.5, 92.0, 78.3)
+                )
+                print(data)
+                cat("\nSummary:\n")
+                print(summary(data))
+                """,
+            "sql" => """
+                -- SQL Query
+                SELECT name, age, salary
+                FROM employees
+                WHERE age > 25
+                ORDER BY salary DESC
+                LIMIT 10;
+                """,
+            _ => """
+                import pandas as pd
+                import numpy as np
+
+                # Sample data
+                data = {
+                    'Name': ['Alice', 'Bob', 'Charlie', 'Diana', 'Eve'],
+                    'Age': [25, 30, 35, 28, 32],
+                    'Salary': [50000, 60000, 75000, 55000, 70000]
+                }
+
+                df = pd.DataFrame(data)
+                print(df)
+                print()
+                print(df.describe())
+                """
+        };
+        _lastResult = null;
+    }
+
+    private string GetLanguageLabel() => _selectedLanguage switch
+    {
+        "python" => "🐍 Python",
+        "r" => "📊 R",
+        "sql" => "🗃️ SQL",
+        _ => _selectedLanguage
+    };
+
+    private string GetPlaceholder() => _selectedLanguage switch
+    {
+        "r" => "# Write your R code here\nlibrary(ggplot2)\ndata <- read.csv('data.csv')\nsummary(data)",
+        "sql" => "-- Write your SQL query here\nSELECT * FROM table_name LIMIT 10;",
+        _ => "# Write your Python code here\nimport pandas as pd\n\ndf = pd.read_csv('data.csv')\nprint(df.describe())"
+    };
+
+    private void LoadTemplate(ChangeEventArgs e)
+    {
+        var template = e.Value?.ToString();
+        _code = template switch
+        {
+            "pandas" => """
+                import pandas as pd
+
+                df = pd.DataFrame({
+                    'Name': ['Alice', 'Bob', 'Charlie'],
+                    'Age': [25, 30, 35],
+                    'Score': [85.5, 92.0, 78.3]
+                })
+
+                print("DataFrame:")
+                print(df)
+                print("\nStatistics:")
+                print(df.describe())
+                print("\nFiltered (Age > 27):")
+                print(df[df['Age'] > 27])
+                """,
+            "numpy" => """
+                import numpy as np
+
+                a = np.array([1, 2, 3, 4, 5])
+                b = np.random.randn(3, 3)
+
+                print("Array:", a)
+                print("Mean:", a.mean())
+                print("Std:", a.std())
+                print("\nRandom Matrix:")
+                print(b)
+                print("\nMatrix multiply:")
+                print(b @ b.T)
+                """,
+            "matplotlib" => """
+                import matplotlib.pyplot as plt
+                import numpy as np
+
+                x = np.linspace(0, 2 * np.pi, 100)
+                y1 = np.sin(x)
+                y2 = np.cos(x)
+
+                plt.figure(figsize=(10, 6))
+                plt.plot(x, y1, label='sin(x)', linewidth=2)
+                plt.plot(x, y2, label='cos(x)', linewidth=2)
+                plt.title('Trigonometric Functions')
+                plt.xlabel('x')
+                plt.ylabel('y')
+                plt.legend()
+                plt.grid(True, alpha=0.3)
+                plt.show()
+                """,
+            "sklearn" => """
+                from sklearn.datasets import make_classification
+                from sklearn.model_selection import train_test_split
+                from sklearn.ensemble import RandomForestClassifier
+                from sklearn.metrics import classification_report
+
+                X, y = make_classification(n_samples=1000, n_features=20, random_state=42)
+                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+                model = RandomForestClassifier(n_estimators=100, random_state=42)
+                model.fit(X_train, y_train)
+
+                y_pred = model.predict(X_test)
+                print(classification_report(y_test, y_pred))
+                """,
+            "seaborn" => """
+                import seaborn as sns
+                import matplotlib.pyplot as plt
+                import pandas as pd
+                import numpy as np
+
+                np.random.seed(42)
+                df = pd.DataFrame({
+                    'x': np.random.randn(200),
+                    'y': np.random.randn(200),
+                    'category': np.random.choice(['A', 'B', 'C'], 200)
+                })
+
+                plt.figure(figsize=(10, 6))
+                sns.scatterplot(data=df, x='x', y='y', hue='category', palette='viridis')
+                plt.title('Scatter Plot by Category')
+                plt.show()
+                """,
+            "data-clean" => """
+                import pandas as pd
+                import numpy as np
+
+                df = pd.DataFrame({
+                    'name': ['Alice', 'Bob', None, 'Diana', 'Eve', 'Bob'],
+                    'age': [25, -5, 35, 28, 300, 30],
+                    'salary': [50000, 60000, np.nan, 55000, 70000, 60000]
+                })
+
+                print("Before cleaning:")
+                print(df)
+                print(f"\nMissing values:\n{df.isnull().sum()}")
+                print(f"\nDuplicates: {df.duplicated().sum()}")
+
+                df_clean = df.dropna().drop_duplicates()
+                df_clean = df_clean[df_clean['age'].between(0, 120)]
+
+                print("\nAfter cleaning:")
+                print(df_clean)
+                """,
+            "r-basic" => """
+                # R Basics
+                x <- c(1, 2, 3, 4, 5)
+                cat("Vector:", x, "\n")
+                cat("Mean:", mean(x), "\n")
+                cat("SD:", sd(x), "\n")
+
+                m <- matrix(1:9, nrow=3)
+                cat("\nMatrix:\n")
+                print(m)
+                """,
+            "r-ggplot" => """
+                library(ggplot2)
+
+                df <- data.frame(
+                  x = rnorm(100),
+                  y = rnorm(100),
+                  group = sample(c("A", "B"), 100, replace=TRUE)
+                )
+
+                p <- ggplot(df, aes(x=x, y=y, color=group)) +
+                  geom_point(size=3, alpha=0.7) +
+                  theme_minimal() +
+                  labs(title="Scatter Plot", x="X Axis", y="Y Axis")
+
+                print(p)
+                """,
+            "r-stats" => """
+                # Statistical Analysis
+                set.seed(42)
+                group_a <- rnorm(30, mean=100, sd=15)
+                group_b <- rnorm(30, mean=110, sd=15)
+
+                result <- t.test(group_a, group_b)
+                cat("T-test Results:\n")
+                print(result)
+
+                cat("\nCorrelation:\n")
+                print(cor.test(group_a, group_b))
+                """,
+            "r-dplyr" => """
+                library(dplyr)
+
+                df <- data.frame(
+                  name = c("Alice", "Bob", "Charlie", "Diana"),
+                  dept = c("DS", "ML", "DS", "ML"),
+                  salary = c(90000, 85000, 95000, 88000)
+                )
+
+                result <- df %>%
+                  group_by(dept) %>%
+                  summarise(
+                    avg_salary = mean(salary),
+                    count = n()
+                  ) %>%
+                  arrange(desc(avg_salary))
+
+                print(result)
+                """,
+            "sql-select" => """
+                SELECT
+                    name,
+                    department,
+                    salary,
+                    RANK() OVER (ORDER BY salary DESC) as rank
+                FROM employees
+                WHERE department = 'Engineering'
+                ORDER BY salary DESC;
+                """,
+            "sql-join" => """
+                SELECT
+                    e.name,
+                    d.department_name,
+                    e.salary
+                FROM employees e
+                INNER JOIN departments d
+                    ON e.department_id = d.id
+                WHERE e.salary > 50000
+                ORDER BY e.salary DESC;
+                """,
+            _ => _code
+        };
+    }
+}

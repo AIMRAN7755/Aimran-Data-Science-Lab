@@ -1,0 +1,512 @@
+@using System.Text.Json
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+@inject MudBlazor.IDialogService DialogService
+@inject HttpClient Http
+@inject ILogger<SettingsPrivacy> Logger
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.H5" Class="font-weight-bold">Privacy & Security</MudText>
+    <MudText Typo="Typo.Body2" Style="color: var(--mud-palette-text-secondary);">Control your privacy and security settings</MudText>
+
+    <MudPaper Elevation="0" Class="pa-4" Style="background-color: var(--mud-palette-background-grey);">
+        <MudStack Spacing="3">
+            <!-- Profile Visibility -->
+            <MudStack>
+                <MudText Typo="Typo.Subtitle2" Class="font-weight-bold">Profile Visibility</MudText>
+
+                <MudSelect T="string" Label="Profile Visibility" Value="@profileVisibility" ValueChanged="@((string val) => profileVisibility = val)" Variant="Variant.Outlined">
+                    <MudSelectItem Value="@("public")">Public</MudSelectItem>
+                    <MudSelectItem Value="@("private")">Private</MudSelectItem>
+                    <MudSelectItem Value="@("team")">Team Members Only</MudSelectItem>
+                </MudSelect>
+
+                <MudCheckBox @bind-Value="showOnlineStatus" Label="Show online status" />
+                <MudCheckBox @bind-Value="allowProfileSearch" Label="Allow your profile to be found in search" />
+            </MudStack>
+
+            <MudDivider />
+
+            <!-- Two-Factor Authentication -->
+            <MudStack>
+                <MudText Typo="Typo.Subtitle2" Class="font-weight-bold">Two-Factor Authentication (2FA)</MudText>
+
+                <MudAlert Severity="@(twoFactorEnabled ? Severity.Success : Severity.Warning)">
+                    @(twoFactorEnabled ? "2FA is enabled" : "2FA is disabled - Enable it for better security")
+                </MudAlert>
+
+                @if (!twoFactorEnabled)
+                {
+                    <MudButton Variant="Variant.Filled" Color="MudBlazor.Color.Success" OnClick="Enable2FA">Enable 2FA</MudButton>
+                }
+                else
+                {
+                    <MudButton Variant="Variant.Outlined" Color="MudBlazor.Color.Error" OnClick="Disable2FA">Disable 2FA</MudButton>
+                }
+            </MudStack>
+
+            <MudDivider />
+
+            <!-- Active Sessions -->
+            <MudStack>
+                <MudText Typo="Typo.Subtitle2" Class="font-weight-bold">Active Sessions</MudText>
+
+                @foreach (var session in activeSessions)
+                {
+                    <MudPaper Elevation="0" Class="pa-3" Style="background-color: var(--mud-palette-background);">
+                        <MudStack Spacing="1">
+                            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                <MudIcon Icon="@session.Icon" Size="Size.Medium" />
+                                <MudStack Style="flex: 1;">
+                                    <MudText Typo="Typo.Body2" Class="font-weight-bold">@session.Device</MudText>
+                                    <MudText Typo="Typo.Caption" Style="color: var(--mud-palette-text-secondary);">@session.Location</MudText>
+                                    <MudText Typo="Typo.Caption" Style="color: var(--mud-palette-text-secondary);">@session.LastActive.ToString("g")</MudText>
+                                </MudStack>
+                                @if (session.IsCurrent)
+                                {
+                                    <MudChip T="string" Size="Size.Small" Color="MudBlazor.Color.Success">Current</MudChip>
+                                }
+                                else
+                                {
+                                    <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="MudBlazor.Color.Error" OnClick="@((e) => RevokeSession(session.Id))">Revoke</MudButton>
+                                }
+                            </MudStack>
+                        </MudStack>
+                    </MudPaper>
+                }
+
+                <MudButton Variant="Variant.Outlined" Color="MudBlazor.Color.Error" OnClick="RevokeAllSessions">Sign Out All Other Sessions</MudButton>
+            </MudStack>
+
+            <MudDivider />
+
+            <!-- Connected Applications -->
+            <MudStack>
+                <MudText Typo="Typo.Subtitle2" Class="font-weight-bold">Connected Applications</MudText>
+
+                @if (connectedApps.Count > 0)
+                {
+                    @foreach (var app in connectedApps)
+                    {
+                        <MudPaper Elevation="0" Class="pa-3" Style="background-color: var(--mud-palette-background);">
+                            <MudStack Spacing="1">
+                                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                    <MudAvatar Size="Size.Medium" Color="MudBlazor.Color.Primary">@app.Name[0]</MudAvatar>
+                                    <MudStack Style="flex: 1;">
+                                        <MudText Typo="Typo.Body2" Class="font-weight-bold">@app.Name</MudText>
+                                        <MudText Typo="Typo.Caption" Style="color: var(--mud-palette-text-secondary);">Last accessed: @app.LastAccessed.ToShortDateString()</MudText>
+                                    </MudStack>
+                                    <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="MudBlazor.Color.Error" OnClick="@((e) => RevokeApp(app.Id))">Revoke Access</MudButton>
+                                </MudStack>
+                            </MudStack>
+                        </MudPaper>
+                    }
+                }
+                else
+                {
+                    <MudAlert Severity="Severity.Info">No connected applications</MudAlert>
+                }
+            </MudStack>
+
+            <MudDivider />
+
+            <!-- Data Download & Deletion -->
+            <MudStack>
+                <MudText Typo="Typo.Subtitle2" Class="font-weight-bold">Data Management</MudText>
+
+                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Download" OnClick="DownloadData">Download My Data</MudButton>
+                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.DeleteForever" Color="MudBlazor.Color.Error" OnClick="DeleteAccount">Delete My Account</MudButton>
+            </MudStack>
+
+            <MudDivider />
+
+            <!-- Analytics & Tracking -->
+            <MudStack>
+                <MudText Typo="Typo.Subtitle2" Class="font-weight-bold">Analytics & Tracking</MudText>
+
+                <MudCheckBox @bind-Value="enableAnalytics" Label="Allow analytics tracking (helps us improve the app)" />
+                <MudCheckBox @bind-Value="enableCrashReports" Label="Send crash reports" />
+                <MudCheckBox @bind-Value="enableUsageStats" Label="Send usage statistics" />
+            </MudStack>
+
+            <MudDivider />
+
+            <!-- Action Buttons -->
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Filled" Color="MudBlazor.Color.Primary" OnClick="SavePrivacySettings">Save Settings</MudButton>
+                <MudButton Variant="Variant.Outlined" OnClick="ResetPrivacySettings">Cancel</MudButton>
+            </MudStack>
+        </MudStack>
+    </MudPaper>
+</MudStack>
+
+@code {
+    private class Session
+    {
+        public string Id { get; set; } = "";
+        public string Device { get; set; } = "";
+        public string Location { get; set; } = "";
+        public DateTime LastActive { get; set; }
+        public bool IsCurrent { get; set; }
+        public string Icon => Device.Contains("Chrome") ? Icons.Material.Filled.Computer : Icons.Material.Filled.Smartphone;
+    }
+
+    private class ConnectedApp
+    {
+        public string Id { get; set; } = "";
+        public string Name { get; set; } = "";
+        public DateTime LastAccessed { get; set; }
+    }
+
+    private string profileVisibility = "team";
+    private bool showOnlineStatus = true;
+    private bool allowProfileSearch = true;
+    private bool twoFactorEnabled = true;
+    private bool enableAnalytics = true;
+    private bool enableCrashReports = true;
+    private bool enableUsageStats = true;
+
+    private List<Session> activeSessions = new()
+    {
+        new Session { Id = "1", Device = "Chrome on Windows", Location = "New York, USA", LastActive = DateTime.Now, IsCurrent = true },
+        new Session { Id = "2", Device = "Safari on MacOS", Location = "New York, USA", LastActive = DateTime.Now.AddHours(-2), IsCurrent = false },
+        new Session { Id = "3", Device = "Chrome on Android", Location = "New York, USA", LastActive = DateTime.Now.AddDays(-1), IsCurrent = false }
+    };
+
+    private List<ConnectedApp> connectedApps = new()
+    {
+        new ConnectedApp { Id = "1", Name = "VS Code Extension", LastAccessed = DateTime.Now.AddHours(-1) },
+        new ConnectedApp { Id = "2", Name = "GitHub Integration", LastAccessed = DateTime.Now.AddDays(-1) },
+        new ConnectedApp { Id = "3", Name = "Slack Bot", LastAccessed = DateTime.Now.AddDays(-3) }
+    };
+
+        private async Task Enable2FA()
+    {
+        try
+        {
+            var confirm = await DialogService.ShowMessageBoxAsync(
+                "Enable Two-Factor Authentication",
+                "Would you like to enable Two-Factor Authentication for enhanced security?",
+                yesText: "Enable",
+                cancelText: "Cancel");
+
+            if (confirm == true)
+            {
+                twoFactorEnabled = true;
+                await DialogService.ShowMessageBoxAsync("Success", "Two-Factor Authentication enabled.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to complete 2FA setup");
+            await DialogService.ShowMessageBoxAsync("Error", "Failed to setup Two-Factor Authentication.");
+        }
+    }
+
+    private async Task Disable2FA()
+    {
+        try
+        {
+            var ok = await DialogService.ShowMessageBoxAsync("Disable 2FA", "Are you sure you want to disable Two-Factor Authentication?", yesText: "Disable", cancelText: "Cancel");
+            if (ok == true)
+            {
+                try
+                {
+                    var res = await Http.PostAsync("api/account/2fa/disable", null);
+                    if (res.IsSuccessStatusCode)
+                    {
+                        twoFactorEnabled = false;
+                        await DialogService.ShowMessageBoxAsync("Success", "Two-Factor Authentication disabled.");
+                    }
+                    else
+                    {
+                        Logger.LogWarning("Disable2FA failed with status {StatusCode}", res.StatusCode);
+                        await DialogService.ShowMessageBoxAsync("Error", "Failed to disable 2FA. See logs.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, "Error calling disable 2FA API");
+                    await DialogService.ShowMessageBoxAsync("Error", "Server error while disabling 2FA.");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Disable2FA dialog error");
+            await DialogService.ShowMessageBoxAsync("Error", "Unexpected error while disabling 2FA.");
+        }
+    }
+
+    private async Task RevokeSession(string sessionId)
+    {
+        try
+        {
+            // call server to revoke session
+            var res = await Http.PostAsync($"api/account/sessions/revoke/{sessionId}", null);
+            if (res.IsSuccessStatusCode)
+            {
+                activeSessions.RemoveAll(s => s.Id == sessionId);
+            }
+            else
+            {
+                Logger.LogWarning("RevokeSession failed for {SessionId} with {Status}", sessionId, res.StatusCode);
+                await DialogService.ShowMessageBoxAsync("Error", "Failed to revoke session on server.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error revoking session {SessionId}", sessionId);
+            await DialogService.ShowMessageBoxAsync("Error", "Unexpected error while revoking the session.");
+        }
+    }
+
+    private async Task RevokeAllSessions()
+    {
+        try
+        {
+            var res = await Http.PostAsync("api/account/sessions/revokeAllExceptCurrent", null);
+            if (res.IsSuccessStatusCode)
+            {
+                activeSessions = activeSessions.Where(s => s.IsCurrent).ToList();
+            }
+            else
+            {
+                Logger.LogWarning("RevokeAllSessions failed with {Status}", res.StatusCode);
+                await DialogService.ShowMessageBoxAsync("Error", "Failed to revoke sessions on server.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error revoking all sessions");
+            await DialogService.ShowMessageBoxAsync("Error", "Unexpected error while revoking sessions.");
+        }
+    }
+
+    private async Task RevokeApp(string appId)
+    {
+        try
+        {
+            var res = await Http.PostAsync($"api/account/apps/revoke/{appId}", null);
+            if (res.IsSuccessStatusCode)
+            {
+                connectedApps.RemoveAll(a => a.Id == appId);
+            }
+            else
+            {
+                Logger.LogWarning("RevokeApp failed for {AppId} with {Status}", appId, res.StatusCode);
+                await DialogService.ShowMessageBoxAsync("Error", "Failed to revoke app access on server.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error revoking app {AppId}", appId);
+            await DialogService.ShowMessageBoxAsync("Error", "Unexpected error while revoking app access.");
+        }
+    }
+    private async Task DownloadData()
+    {
+        try
+        {
+            var export = new
+            {
+                ProfileVisibility = profileVisibility,
+                ShowOnlineStatus = showOnlineStatus,
+                AllowProfileSearch = allowProfileSearch,
+                TwoFactorEnabled = twoFactorEnabled,
+                ActiveSessions = activeSessions,
+                ConnectedApps = connectedApps,
+                Analytics = new { enableAnalytics, enableCrashReports, enableUsageStats }
+            };
+
+            var json = JsonSerializer.Serialize(export, new JsonSerializerOptions { WriteIndented = true });
+
+            // Offer server-side export if available
+            try
+            {
+                var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+                var res = await Http.PostAsync("api/account/export", content);
+                if (res.IsSuccessStatusCode)
+                {
+                    // server returned a file url or blob - for demo just show success
+                    await DialogService.ShowMessageBoxAsync("Export", "Data export initiated on server. Check your email or downloads.");
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogInformation(ex, "Server export not available, falling back to client clipboard export.");
+            }
+
+            // Fallback: copy to clipboard
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", json);
+            await DialogService.ShowMessageBoxAsync("Export copied", "Export copied to clipboard. Paste and save it to a file to keep a local copy.");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error exporting data");
+            await DialogService.ShowMessageBoxAsync("Error", "Failed to prepare data export.");
+        }
+    }
+
+    private async Task DeleteAccount()
+    {
+        try
+        {
+            var ok = await DialogService.ShowMessageBoxAsync("Delete Account", "Are you sure you want to permanently delete your account? This action cannot be undone.", yesText: "Delete", cancelText: "Cancel");
+            if (ok != true)
+                return;
+
+            try
+            {
+                var res = await Http.DeleteAsync("api/account");
+                if (res.IsSuccessStatusCode)
+                {
+                    await DialogService.ShowMessageBoxAsync("Deleted", "Your account has been deleted.");
+                    Navigation.NavigateTo("/");
+                }
+                else
+                {
+                    Logger.LogWarning("DeleteAccount failed with {Status}", res.StatusCode);
+                    await DialogService.ShowMessageBoxAsync("Error", "Failed to delete account on server.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error calling delete account API");
+                await DialogService.ShowMessageBoxAsync("Error", "Server error while deleting account.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "DeleteAccount dialog error");
+            await DialogService.ShowMessageBoxAsync("Error", "Unexpected error while deleting account.");
+        }
+    }
+
+    private async Task SavePrivacySettings()
+    {
+        var settings = new
+        {
+            ProfileVisibility = profileVisibility,
+            ShowOnlineStatus = showOnlineStatus,
+            AllowProfileSearch = allowProfileSearch,
+            TwoFactorEnabled = twoFactorEnabled,
+            Analytics = new { enableAnalytics, enableCrashReports, enableUsageStats }
+        };
+
+        try
+        {
+            var json = JsonSerializer.Serialize(settings);
+
+            // Prefer server-side persisting
+            var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+            var res = await Http.PostAsync("api/account/settings", content);
+            if (res.IsSuccessStatusCode)
+            {
+                await DialogService.ShowMessageBoxAsync("Saved", "Privacy settings saved.");
+                return;
+            }
+            else
+            {
+                Logger.LogWarning("SavePrivacySettings server save failed {Status}", res.StatusCode);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Server save failed, falling back to client-side save");
+        }
+
+        // Fallback to localStorage (non-sensitive data only)
+        try
+        {
+            var jsonLocal = JsonSerializer.Serialize(settings);
+            await JS.InvokeVoidAsync("localStorage.setItem", "privacySettings", jsonLocal);
+            await DialogService.ShowMessageBoxAsync("Saved (Local)", "Privacy settings saved locally (demo fallback).");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to save settings to localStorage");
+            await DialogService.ShowMessageBoxAsync("Error", "Failed to save settings.");
+        }
+    }
+
+    private async Task ResetPrivacySettings()
+    {
+        try
+        {
+            // Try server-side load first
+            var res = await Http.GetAsync("api/account/settings");
+            if (res.IsSuccessStatusCode)
+            {
+                var json = await res.Content.ReadAsStringAsync();
+                var doc = JsonDocument.Parse(json);
+                var root = doc.RootElement;
+                if (root.TryGetProperty("ProfileVisibility", out var pv))
+                    profileVisibility = pv.GetString() ?? profileVisibility;
+                if (root.TryGetProperty("ShowOnlineStatus", out var sos))
+                    showOnlineStatus = sos.GetBoolean();
+                if (root.TryGetProperty("AllowProfileSearch", out var aps))
+                    allowProfileSearch = aps.GetBoolean();
+                if (root.TryGetProperty("TwoFactorEnabled", out var tfa))
+                    twoFactorEnabled = tfa.GetBoolean();
+                if (root.TryGetProperty("Analytics", out var an))
+                {
+                    if (an.TryGetProperty("enableAnalytics", out var ea))
+                        enableAnalytics = ea.GetBoolean();
+                    if (an.TryGetProperty("enableCrashReports", out var ec))
+                        enableCrashReports = ec.GetBoolean();
+                    if (an.TryGetProperty("enableUsageStats", out var eu))
+                        enableUsageStats = eu.GetBoolean();
+                }
+
+                StateHasChanged();
+                await DialogService.ShowMessageBoxAsync("Loaded", "Settings loaded from server.");
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogInformation(ex, "Server settings not available, falling back to local storage");
+        }
+
+        // Fallback: localStorage
+        try
+        {
+            var json = await JS.InvokeAsync<string>("localStorage.getItem", "privacySettings");
+            if (string.IsNullOrEmpty(json))
+            {
+                await DialogService.ShowMessageBoxAsync("Info", "No saved settings found. Using defaults.");
+                return;
+            }
+
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("ProfileVisibility", out var pv))
+                profileVisibility = pv.GetString() ?? profileVisibility;
+            if (root.TryGetProperty("ShowOnlineStatus", out var sos))
+                showOnlineStatus = sos.GetBoolean();
+            if (root.TryGetProperty("AllowProfileSearch", out var aps))
+                allowProfileSearch = aps.GetBoolean();
+            if (root.TryGetProperty("TwoFactorEnabled", out var tfa))
+                twoFactorEnabled = tfa.GetBoolean();
+            if (root.TryGetProperty("Analytics", out var an))
+            {
+                if (an.TryGetProperty("enableAnalytics", out var ea))
+                    enableAnalytics = ea.GetBoolean();
+                if (an.TryGetProperty("enableCrashReports", out var ec))
+                    enableCrashReports = ec.GetBoolean();
+                if (an.TryGetProperty("enableUsageStats", out var eu))
+                    enableUsageStats = eu.GetBoolean();
+            }
+
+            StateHasChanged();
+            await DialogService.ShowMessageBoxAsync("Loaded", "Settings restored from local storage.");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to reset settings from local storage");
+            await DialogService.ShowMessageBoxAsync("Error", "Failed to parse saved settings.");
+        }
+    }
+}

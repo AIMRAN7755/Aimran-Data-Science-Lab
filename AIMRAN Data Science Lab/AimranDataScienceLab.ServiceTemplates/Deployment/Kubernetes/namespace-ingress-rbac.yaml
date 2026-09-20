@@ -1,0 +1,190 @@
+---
+# AIMRAN Kubernetes Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aimran
+  labels:
+    name: aimran
+
+---
+# Ingress for HTTP/HTTPS traffic routing
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aimran-ingress
+  namespace: aimran
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    ingress.kubernetes.io/ssl-redirect: "true"
+    ingress.kubernetes.io/force-ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - DOMAIN_NAME
+        - api.DOMAIN_NAME
+        - dashboard.DOMAIN_NAME
+      secretName: aimran-tls
+  rules:
+    - host: api.DOMAIN_NAME
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: management-api
+                port:
+                  number: 5000
+    - host: dashboard.DOMAIN_NAME
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: dashboard
+                port:
+                  number: 80
+
+---
+# Certificate for TLS
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: aimran-cert
+  namespace: aimran
+spec:
+  secretName: aimran-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+    - DOMAIN_NAME
+    - api.DOMAIN_NAME
+    - dashboard.DOMAIN_NAME
+
+---
+# Kubernetes resource quotas per namespace
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: aimran-quota
+  namespace: aimran
+spec:
+  hard:
+    requests.cpu: "20"
+    requests.memory: "40Gi"
+    limits.cpu: "40"
+    limits.memory: "80Gi"
+    pods: "100"
+    services.loadbalancers: "2"
+
+---
+# Network policies for namespace isolation
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: aimran-internal-traffic
+  namespace: aimran
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: aimran
+
+---
+# Allow ingress traffic to dashboard and API
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: aimran-ingress-traffic
+  namespace: aimran
+spec:
+  podSelector:
+    matchLabels:
+      ingress-allowed: "true"
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+
+---
+# RBAC: Cluster role for monitoring
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: aimran-monitoring
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "endpoints"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets"]
+    verbs: ["get", "list", "watch"]
+
+---
+# RBAC: Cluster role binding for monitoring
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: aimran-monitoring-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: aimran-monitoring
+subjects:
+  - kind: ServiceAccount
+    name: monitoring-sa
+    namespace: aimran
+
+---
+# Service account for monitoring
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: monitoring-sa
+  namespace: aimran
+
+---
+# Pod Security Policy (if using older K8s versions)
+# For newer versions, use Pod Security Standards (PSS)
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: aimran-psp
+spec:
+  privileged: false
+  allowPrivilegeEscalation: false
+  requiredDropCapabilities:
+    - ALL
+  volumes:
+    - 'configMap'
+    - 'emptyDir'
+    - 'projected'
+    - 'secret'
+    - 'downwardAPI'
+    - 'persistentVolumeClaim'
+  hostNetwork: false
+  hostIPC: false
+  hostPID: false
+  runAsUser:
+    rule: 'MustRunAsNonRoot'
+  seLinux:
+    rule: 'MustRunAs'
+    seLinuxOptions:
+      level: "s0:c123,c456"
+  fsGroup:
+    rule: 'MustRunAs'
+    ranges:
+      - min: 1000
+        max: 65535
+  readOnlyRootFilesystem: true

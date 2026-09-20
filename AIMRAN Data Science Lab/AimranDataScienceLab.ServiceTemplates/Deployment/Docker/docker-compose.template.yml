@@ -1,0 +1,235 @@
+version: '3.9'
+
+# AIMRAN Data Science Lab Services - Local Development Stack
+# This template orchestrates all service components for local testing
+
+services:
+  # Infrastructure Services
+  service-registry:
+    image: aimran/service-registry:latest
+    container_name: aimran-registry
+    ports:
+      - "5001:5000"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ServiceRegistry__Port=5000
+      - Logging__LogLevel__Default=Information
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - aimran-network
+    volumes:
+      - registry-data:/data
+
+  ipc-broker:
+    image: aimran/ipc-broker:latest
+    container_name: aimran-broker
+    ports:
+      - "5002:5000"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - IPCBroker__Port=5000
+      - IPCBroker__MaxConnections=1000
+      - Logging__LogLevel__Default=Information
+    depends_on:
+      - service-registry
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - aimran-network
+
+  service-gateway:
+    image: aimran/service-gateway:latest
+    container_name: aimran-gateway
+    ports:
+      - "5003:5000"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ServiceGateway__Port=5000
+      - ServiceGateway__RegistryUrl=http://service-registry:5000
+      - Logging__LogLevel__Default=Information
+    depends_on:
+      - service-registry
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - aimran-network
+
+  monitoring-service:
+    image: aimran/monitoring-service:latest
+    container_name: aimran-monitor
+    ports:
+      - "5004:5000"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - Monitoring__Port=5000
+      - Monitoring__MetricsInterval=30
+      - Logging__LogLevel__Default=Information
+    depends_on:
+      - service-registry
+      - ipc-broker
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - aimran-network
+    volumes:
+      - monitoring-data:/data
+
+  # Role-Specific Services
+  analyst-service:
+    image: aimran/analyst-service:latest
+    container_name: aimran-analyst
+    ports:
+      - "5010:5000"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - Service__Name=AnalystService
+      - Service__RegistryUrl=http://service-registry:5000
+      - Logging__LogLevel__Default=Information
+    depends_on:
+      - service-registry
+      - service-gateway
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - aimran-network
+
+  scientist-service:
+    image: aimran/scientist-service:latest
+    container_name: aimran-scientist
+    ports:
+      - "5011:5000"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - Service__Name=ScientistService
+      - Service__RegistryUrl=http://service-registry:5000
+      - Logging__LogLevel__Default=Information
+    depends_on:
+      - service-registry
+      - service-gateway
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - aimran-network
+
+  engineer-service:
+    image: aimran/engineer-service:latest
+    container_name: aimran-engineer
+    ports:
+      - "5012:5000"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - Service__Name=EngineerService
+      - Service__RegistryUrl=http://service-registry:5000
+      - Logging__LogLevel__Default=Information
+    depends_on:
+      - service-registry
+      - service-gateway
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - aimran-network
+
+  ai-engineer-service:
+    image: aimran/ai-engineer-service:latest
+    container_name: aimran-ai-engineer
+    ports:
+      - "5013:5000"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - Service__Name=AIEngineerService
+      - Service__RegistryUrl=http://service-registry:5000
+      - Logging__LogLevel__Default=Information
+    depends_on:
+      - service-registry
+      - service-gateway
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - aimran-network
+
+  # Management API
+  management-api:
+    image: aimran/management-api:latest
+    container_name: aimran-api
+    ports:
+      - "5100:5000"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ManagementApi__Port=5000
+      - ManagementApi__RegistryUrl=http://service-registry:5000
+      - Logging__LogLevel__Default=Information
+    depends_on:
+      - service-registry
+      - service-gateway
+      - monitoring-service
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    networks:
+      - aimran-network
+
+  # Dashboard UI
+  dashboard:
+    image: aimran/dashboard:latest
+    container_name: aimran-dashboard
+    ports:
+      - "80:80"
+    environment:
+      - API_URL=http://management-api:5000
+      - REGISTRY_URL=http://service-registry:5000
+    depends_on:
+      - management-api
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - aimran-network
+
+networks:
+  aimran-network:
+    driver: bridge
+
+volumes:
+  registry-data:
+    driver: local
+  monitoring-data:
+    driver: local

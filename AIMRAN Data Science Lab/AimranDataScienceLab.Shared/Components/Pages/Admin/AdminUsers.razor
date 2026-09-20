@@ -1,0 +1,241 @@
+@page "/admin/users"
+@layout AdminLayout
+@inject IAdminService AdminService
+@inject IAuthService AuthService
+@inject IAuditService AuditService
+
+<PageTitle>User Management - AIMRAN Admin</PageTitle>
+
+<div class="admin-page">
+    <h1 class="admin-title">👥 User Management</h1>
+
+    <div class="action-bar">
+        <button class="btn btn-primary" @onclick="ShowCreateUser">➕ Create User</button>
+        <button class="btn btn-outline" @onclick="LoadUsersAsync">🔄 Refresh</button>
+        <span style="color:#666; font-size:0.82rem; margin-left:auto;">@_users.Count users total</span>
+    </div>
+
+    <div class="table-scroll">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Last Login</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var user in _users)
+                {
+                    <tr>
+                        <td><strong>@user.Username</strong></td>
+                        <td>@(user.Email ?? "—")</td>
+                        <td><span class="role-pill role-@user.Role">@user.Role</span></td>
+                        <td>
+                            @if (user.IsLocked)
+                            {
+                                <span class="status-locked">🔒 Locked</span>
+                            }
+                            else
+                            {
+                                <span class="status-active">✅ Active</span>
+                            }
+                        </td>
+                        <td>@user.CreatedAt.ToString("yyyy-MM-dd")</td>
+                        <td>@(user.LastLoginAt?.ToString("MM-dd HH:mm") ?? "Never")</td>
+                        <td class="action-cell">
+                            <button class="btn btn-xs btn-outline" @onclick="() => ShowEditRole(user)" title="Change Role">🔑</button>
+                            <button class="btn btn-xs btn-outline" @onclick="() => ShowResetPassword(user)" title="Reset Password">🔄</button>
+                            @if (user.IsLocked)
+                            {
+                                <button class="btn btn-xs btn-outline" @onclick="() => ToggleLockAsync(user)" title="Unlock">🔓</button>
+                            }
+                            else
+                            {
+                                <button class="btn btn-xs btn-outline" @onclick="() => ToggleLockAsync(user)" title="Lock">🔒</button>
+                            }
+                            <button class="btn btn-xs btn-danger" @onclick="() => ShowDeleteConfirm(user)" title="Delete">🗑️</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@* ── Create User Modal ── *@
+@if (_showCreate)
+{
+    <div class="admin-modal-overlay" @onclick="CloseModals">
+        <div class="admin-modal" @onclick:stopPropagation>
+            <h3>➕ Create User</h3>
+            <div class="form-group">
+                <label>Username</label>
+                <input class="form-input" @bind="_newUsername" placeholder="Username" />
+            </div>
+            <div class="form-group">
+                <label>Email (optional)</label>
+                <input class="form-input" @bind="_newEmail" placeholder="email@example.com" />
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input class="form-input" type="password" @bind="_newPassword" placeholder="Min 8 characters" />
+            </div>
+            <div class="form-group">
+                <label>Role</label>
+                <select class="form-input" @bind="_newRole">
+                    @foreach (var r in AimranRoles.All) { <option value="@r">@r</option> }
+                </select>
+            </div>
+            @if (!string.IsNullOrEmpty(_modalError)) { <div class="modal-error">@_modalError</div> }
+            <div class="modal-actions">
+                <button class="btn btn-outline" @onclick="CloseModals">Cancel</button>
+                <button class="btn btn-primary" @onclick="CreateUserAsync">Create</button>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Edit Role Modal ── *@
+@if (_showEditRole && _selectedUser is not null)
+{
+    <div class="admin-modal-overlay" @onclick="CloseModals">
+        <div class="admin-modal" @onclick:stopPropagation>
+            <h3>🔑 Change Role — @_selectedUser.Username</h3>
+            <div class="form-group">
+                <label>New Role</label>
+                <select class="form-input" @bind="_editRoleValue">
+                    @foreach (var r in AimranRoles.All) { <option value="@r">@r</option> }
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-outline" @onclick="CloseModals">Cancel</button>
+                <button class="btn btn-primary" @onclick="ChangeRoleAsync">Save</button>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Reset Password Modal ── *@
+@if (_showResetPw && _selectedUser is not null)
+{
+    <div class="admin-modal-overlay" @onclick="CloseModals">
+        <div class="admin-modal" @onclick:stopPropagation>
+            <h3>🔄 Reset Password — @_selectedUser.Username</h3>
+            <div class="form-group">
+                <label>New Password</label>
+                <input class="form-input" type="password" @bind="_resetPwValue" placeholder="Min 8 characters" />
+            </div>
+            @if (!string.IsNullOrEmpty(_modalError)) { <div class="modal-error">@_modalError</div> }
+            <div class="modal-actions">
+                <button class="btn btn-outline" @onclick="CloseModals">Cancel</button>
+                <button class="btn btn-primary" @onclick="ResetPasswordAsync">Reset</button>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Delete Confirmation Modal ── *@
+@if (_showDelete && _selectedUser is not null)
+{
+    <div class="admin-modal-overlay" @onclick="CloseModals">
+        <div class="admin-modal" @onclick:stopPropagation>
+            <h3>🗑️ Delete User</h3>
+            <p style="color:#ccc">Are you sure you want to delete <strong>@_selectedUser.Username</strong>? This cannot be undone.</p>
+            <div class="modal-actions">
+                <button class="btn btn-outline" @onclick="CloseModals">Cancel</button>
+                <button class="btn btn-danger" @onclick="DeleteUserAsync">Delete</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private IReadOnlyList<AimranUser> _users = [];
+    private AimranUser? _selectedUser;
+
+    // Modal state
+    private bool _showCreate, _showEditRole, _showResetPw, _showDelete;
+    private string _newUsername = "", _newEmail = "", _newPassword = "", _newRole = AimranRoles.Viewer;
+    private string _editRoleValue = AimranRoles.Viewer;
+    private string _resetPwValue = "";
+    private string? _modalError;
+
+    protected override async Task OnInitializedAsync() => await LoadUsersAsync();
+
+    private async Task LoadUsersAsync()
+    {
+        _users = await AdminService.GetAllUsersAsync();
+    }
+
+    // ── Create ──
+    private void ShowCreateUser() { _showCreate = true; _modalError = null; _newUsername = ""; _newEmail = ""; _newPassword = ""; _newRole = AimranRoles.Viewer; }
+
+    private async Task CreateUserAsync()
+    {
+        _modalError = null;
+        var result = await AuthService.RegisterAsync(new RegisterRequest
+        {
+            Username = _newUsername,
+            Password = _newPassword,
+            Email = string.IsNullOrWhiteSpace(_newEmail) ? null : _newEmail,
+            Role = _newRole
+        });
+
+        if (!result.Succeeded) { _modalError = result.ErrorMessage; return; }
+
+        await AuditService.LogAsync("AdminCreateUser", $"Created user {_newUsername} with role {_newRole}");
+        CloseModals();
+        await LoadUsersAsync();
+    }
+
+    // ── Edit Role ──
+    private void ShowEditRole(AimranUser u) { _selectedUser = u; _editRoleValue = u.Role; _showEditRole = true; }
+
+    private async Task ChangeRoleAsync()
+    {
+        if (_selectedUser is null) return;
+        await AdminService.UpdateUserRoleAsync(_selectedUser.UserId, _editRoleValue);
+        await AuditService.LogAsync("AdminChangeRole", $"Changed {_selectedUser.Username} to {_editRoleValue}");
+        CloseModals();
+        await LoadUsersAsync();
+    }
+
+    // ── Reset Password ──
+    private void ShowResetPassword(AimranUser u) { _selectedUser = u; _resetPwValue = ""; _modalError = null; _showResetPw = true; }
+
+    private async Task ResetPasswordAsync()
+    {
+        if (_selectedUser is null) return;
+        if (string.IsNullOrWhiteSpace(_resetPwValue) || _resetPwValue.Length < 8) { _modalError = "Password must be at least 8 characters."; return; }
+        await AdminService.ResetUserPasswordAsync(_selectedUser.UserId, _resetPwValue);
+        await AuditService.LogAsync("AdminResetPassword", $"Reset password for {_selectedUser.Username}");
+        CloseModals();
+    }
+
+    // ── Lock / Unlock ──
+    private async Task ToggleLockAsync(AimranUser u)
+    {
+        await AdminService.SetUserLockedAsync(u.UserId, !u.IsLocked);
+        await AuditService.LogAsync(u.IsLocked ? "AdminUnlockUser" : "AdminLockUser", u.Username);
+        await LoadUsersAsync();
+    }
+
+    // ── Delete ──
+    private void ShowDeleteConfirm(AimranUser u) { _selectedUser = u; _showDelete = true; }
+
+    private async Task DeleteUserAsync()
+    {
+        if (_selectedUser is null) return;
+        await AdminService.DeleteUserAsync(_selectedUser.UserId);
+        await AuditService.LogAsync("AdminDeleteUser", _selectedUser.Username);
+        CloseModals();
+        await LoadUsersAsync();
+    }
+
+    private void CloseModals() { _showCreate = _showEditRole = _showResetPw = _showDelete = false; _selectedUser = null; _modalError = null; }
+}

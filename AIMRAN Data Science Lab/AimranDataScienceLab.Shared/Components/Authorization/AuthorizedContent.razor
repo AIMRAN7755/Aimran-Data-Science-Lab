@@ -1,0 +1,59 @@
+@if (isLoading)
+{
+    <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+}
+else if (isAuthenticated)
+{
+    @ChildContent
+}
+else
+{
+    @if (NotAuthenticatedContent != null)
+    {
+        @NotAuthenticatedContent
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Warning" Icon="@Icons.Material.Filled.Security">
+            You must be logged in to access this content.
+        </MudAlert>
+    }
+}
+
+@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public RenderFragment? NotAuthenticatedContent { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private bool isAuthenticated = false;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CheckAuthentication();
+    }
+
+    private async Task CheckAuthentication()
+    {
+        try
+        {
+            if (AuthenticationStateTask == null)
+            {
+                isAuthenticated = false;
+                return;
+            }
+
+            var authState = await AuthenticationStateTask;
+            isAuthenticated = authState.User?.Identity?.IsAuthenticated == true;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

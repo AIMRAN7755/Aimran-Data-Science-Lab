@@ -1,0 +1,331 @@
+@page "/azure"
+@inject IAzureConfigService AzureConfigService
+@inject IAzureStorageService AzureStorageService
+@inject IAzureMlService AzureMlService
+
+<PageTitle>Azure Cloud - DS-Workbench</PageTitle>
+
+<div class="page-container">
+    <header class="page-header">
+        <div class="header-content">
+            <h1>☁️ Azure Cloud Integration</h1>
+            <p>Connect to Azure for cloud compute, storage, and ML services</p>
+        </div>
+        <div class="header-actions">
+            @if (_config.IsConfigured && _isAuthenticated)
+            {
+                <button class="btn btn-secondary" @onclick="SignOut">
+                    <span>🚪</span> Sign Out
+                </button>
+            }
+            else if (_config.IsConfigured)
+            {
+                <button class="btn btn-primary" @onclick="Authenticate">
+                    <span>🔑</span> Sign In
+                </button>
+            }
+        </div>
+    </header>
+
+    <!-- Connection Status -->
+    <div class="connection-status @(_config.IsConfigured && _isAuthenticated ? "connected" : "disconnected")">
+        <div class="status-indicator">
+            @if (_config.IsConfigured && _isAuthenticated)
+            {
+                <span class="status-icon">✅</span>
+                <span>Connected to Azure</span>
+            }
+            else if (_config.IsConfigured)
+            {
+                <span class="status-icon">🔐</span>
+                <span>Configured but not signed in</span>
+            }
+            else
+            {
+                <span class="status-icon">⚠️</span>
+                <span>Not configured</span>
+            }
+        </div>
+    </div>
+
+    <!-- Service Cards -->
+    <div class="azure-services">
+        <!-- Azure ML -->
+        <div class="service-card @(_mlConfigured ? "active" : "")">
+            <div class="service-header">
+                <span class="service-icon">🧠</span>
+                <h3>Azure Machine Learning</h3>
+                <span class="service-status">@(_mlConfigured ? "Configured" : "Not Set")</span>
+            </div>
+            <div class="service-body">
+                <p>Use Azure ML for:</p>
+                <ul>
+                    <li>Remote GPU training</li>
+                    <li>AutoML experiments</li>
+                    <li>Model registry & deployment</li>
+                    <li>Distributed training</li>
+                </ul>
+                @if (_mlConfigured && _computeTargets.Any())
+                {
+                    <div class="compute-targets">
+                        <h4>Available Compute</h4>
+                        @foreach (var target in _computeTargets)
+                        {
+                            <span class="compute-badge">@target</span>
+                        }
+                    </div>
+                }
+            </div>
+            <div class="service-footer">
+                <button class="btn btn-sm" @onclick="ShowMlConfigDialog">
+                    @(_mlConfigured ? "Update Config" : "Configure")
+                </button>
+            </div>
+        </div>
+
+        <!-- Azure Blob Storage -->
+        <div class="service-card @(_storageConfigured ? "active" : "")">
+            <div class="service-header">
+                <span class="service-icon">📦</span>
+                <h3>Azure Blob Storage</h3>
+                <span class="service-status">@(_storageConfigured ? "Configured" : "Not Set")</span>
+            </div>
+            <div class="service-body">
+                <p>Use Azure Storage for:</p>
+                <ul>
+                    <li>Dataset versioning & backup</li>
+                    <li>Model artifact storage</li>
+                    <li>Team collaboration</li>
+                    <li>Large file handling</li>
+                </ul>
+            </div>
+            <div class="service-footer">
+                <button class="btn btn-sm" @onclick="ShowStorageConfigDialog">
+                    @(_storageConfigured ? "Update Config" : "Configure")
+                </button>
+            </div>
+        </div>
+
+        <!-- Cloud Boost -->
+        <div class="service-card feature">
+            <div class="service-header">
+                <span class="service-icon">⚡</span>
+                <h3>Cloud Boost</h3>
+                <span class="service-status feature-badge">Premium</span>
+            </div>
+            <div class="service-body">
+                <p>One-click cloud acceleration:</p>
+                <ul>
+                    <li>Auto-scale compute resources</li>
+                    <li>Smart workload distribution</li>
+                    <li>Cost optimization</li>
+                    <li>Automatic fallback to local</li>
+                </ul>
+            </div>
+            <div class="service-footer">
+                <button class="btn btn-cloud btn-sm" disabled="@(!_config.IsConfigured || !_isAuthenticated)">
+                    @(_config.IsConfigured && _isAuthenticated ? "Enable Cloud Boost" : "Configure Azure First")
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuration Section -->
+    <section class="config-section">
+        <h2>⚙️ Subscription Configuration</h2>
+        <div class="config-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Tenant ID</label>
+                    <input type="text" @bind="_tenantId" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+                </div>
+                <div class="form-group">
+                    <label>Client ID (App Registration)</label>
+                    <input type="text" @bind="_clientId" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Subscription ID</label>
+                <input type="text" @bind="_subscriptionId" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+            </div>
+            <div class="form-actions">
+                <button class="btn btn-primary" @onclick="SaveBaseConfig">Save Configuration</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- ML Config Dialog -->
+    @if (_showMlConfigDialog)
+    {
+        <div class="modal-overlay" @onclick="HideMlConfigDialog">
+            <div class="modal-content" @onclick:stopPropagation="true">
+                <h2>Azure ML Configuration</h2>
+                <div class="form-group">
+                    <label>Subscription ID</label>
+                    <input type="text" @bind="_mlSubscriptionId" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+                </div>
+                <div class="form-group">
+                    <label>Resource Group</label>
+                    <input type="text" @bind="_mlResourceGroup" placeholder="my-resource-group" />
+                </div>
+                <div class="form-group">
+                    <label>Workspace Name</label>
+                    <input type="text" @bind="_mlWorkspace" placeholder="my-ml-workspace" />
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" @onclick="HideMlConfigDialog">Cancel</button>
+                    <button class="btn btn-primary" @onclick="SaveMlConfig">Save</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Storage Config Dialog -->
+    @if (_showStorageConfigDialog)
+    {
+        <div class="modal-overlay" @onclick="HideStorageConfigDialog">
+            <div class="modal-content" @onclick:stopPropagation="true">
+                <h2>Azure Storage Configuration</h2>
+                <div class="form-group">
+                    <label>Storage Account Name</label>
+                    <input type="text" @bind="_storageAccountName" placeholder="mystorageaccount" />
+                </div>
+                <div class="form-group">
+                    <label>Container Name</label>
+                    <input type="text" @bind="_storageContainerName" placeholder="ds-workbench-data" />
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" @onclick="HideStorageConfigDialog">Cancel</button>
+                    <button class="btn btn-primary" @onclick="SaveStorageConfig">Save</button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private AzureConfig _config = new();
+    private bool _isAuthenticated;
+    private bool _mlConfigured;
+    private bool _storageConfigured;
+    private IReadOnlyList<string> _computeTargets = [];
+
+    // Base config
+    private string _tenantId = "";
+    private string _clientId = "";
+    private string _subscriptionId = "";
+
+    // ML config dialog
+    private bool _showMlConfigDialog;
+    private string _mlSubscriptionId = "";
+    private string _mlResourceGroup = "";
+    private string _mlWorkspace = "";
+
+    // Storage config dialog
+    private bool _showStorageConfigDialog;
+    private string _storageAccountName = "";
+    private string _storageContainerName = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadConfigAsync();
+    }
+
+    private async Task LoadConfigAsync()
+    {
+        _config = await AzureConfigService.GetConfigAsync();
+        _isAuthenticated = AzureConfigService.IsAuthenticated;
+        _mlConfigured = await AzureMlService.IsConfiguredAsync();
+        _storageConfigured = await AzureStorageService.IsConfiguredAsync();
+
+        // Populate form fields
+        _tenantId = _config.TenantId ?? "";
+        _clientId = _config.ClientId ?? "";
+        _subscriptionId = _config.SubscriptionId ?? "";
+
+        if (_config.MachineLearning is not null)
+        {
+            _mlSubscriptionId = _config.MachineLearning.SubscriptionId;
+            _mlResourceGroup = _config.MachineLearning.ResourceGroupName;
+            _mlWorkspace = _config.MachineLearning.WorkspaceName;
+        }
+
+        if (_config.Storage is not null)
+        {
+            _storageAccountName = _config.Storage.AccountName;
+            _storageContainerName = _config.Storage.ContainerName;
+        }
+
+        if (_mlConfigured && _isAuthenticated)
+        {
+            _computeTargets = await AzureMlService.GetAvailableComputeTargetsAsync();
+        }
+    }
+
+    private async Task SaveBaseConfig()
+    {
+        var updatedConfig = _config with
+        {
+            TenantId = string.IsNullOrWhiteSpace(_tenantId) ? null : _tenantId,
+            ClientId = string.IsNullOrWhiteSpace(_clientId) ? null : _clientId,
+            SubscriptionId = string.IsNullOrWhiteSpace(_subscriptionId) ? null : _subscriptionId
+        };
+
+        await AzureConfigService.SaveConfigAsync(updatedConfig);
+        await LoadConfigAsync();
+    }
+
+    private async Task Authenticate()
+    {
+        await AzureConfigService.AuthenticateAsync();
+        await LoadConfigAsync();
+    }
+
+    private async Task SignOut()
+    {
+        await AzureConfigService.SignOutAsync();
+        await LoadConfigAsync();
+    }
+
+    private void ShowMlConfigDialog() => _showMlConfigDialog = true;
+    private void HideMlConfigDialog() => _showMlConfigDialog = false;
+
+    private async Task SaveMlConfig()
+    {
+        if (string.IsNullOrWhiteSpace(_mlSubscriptionId) ||
+            string.IsNullOrWhiteSpace(_mlResourceGroup) ||
+            string.IsNullOrWhiteSpace(_mlWorkspace))
+            return;
+
+        var mlConfig = new AzureMlConfig
+        {
+            SubscriptionId = _mlSubscriptionId,
+            ResourceGroupName = _mlResourceGroup,
+            WorkspaceName = _mlWorkspace
+        };
+
+        await AzureMlService.ConfigureAsync(mlConfig);
+        HideMlConfigDialog();
+        await LoadConfigAsync();
+    }
+
+    private void ShowStorageConfigDialog() => _showStorageConfigDialog = true;
+    private void HideStorageConfigDialog() => _showStorageConfigDialog = false;
+
+    private async Task SaveStorageConfig()
+    {
+        if (string.IsNullOrWhiteSpace(_storageAccountName) ||
+            string.IsNullOrWhiteSpace(_storageContainerName))
+            return;
+
+        var storageConfig = new AzureStorageConfig
+        {
+            AccountName = _storageAccountName,
+            ContainerName = _storageContainerName
+        };
+
+        await AzureStorageService.ConfigureAsync(storageConfig);
+        HideStorageConfigDialog();
+        await LoadConfigAsync();
+    }
+}

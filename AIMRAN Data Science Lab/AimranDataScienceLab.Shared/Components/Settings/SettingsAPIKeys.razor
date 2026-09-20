@@ -1,0 +1,245 @@
+
+<MudStack Spacing="3">
+    <MudText Typo="TypoStyle.H5" Class="font-weight-bold">API Keys & Integrations</MudText>
+    <MudText Typo="TypoStyle.Body1" Style="color: var(--mud-palette-text-secondary);">Manage your API keys and third-party integrations</MudText>
+
+    <MudPaper Elevation="0" Class="pa-4" Style="background-color: var(--mud-palette-background-grey);">
+        <MudStack Spacing="3">
+            <!-- API Keys Table -->
+            <MudStack>
+                <MudText Typo="TypoStyle.Subtitle2" Class="font-weight-bold">Your API Keys</MudText>
+
+                @if (apiKeys.Count > 0)
+                {
+                    <MudTable Items="@apiKeys" Striped="true" Bordered="true" Dense="true">
+                        <HeaderContent>
+                            <MudTh>Name</MudTh>
+                            <MudTh>Key</MudTh>
+                            <MudTh>Created</MudTh>
+                            <MudTh>Last Used</MudTh>
+                            <MudTh>Actions</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>@context.Name</MudTd>
+                            <MudTd>
+                                <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                                    <MudText Typo="TypoStyle.Body1">@context.MaskedKey</MudText>
+                                    <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small" OnClick="@((e) => CopyToClipboard(context.Key))" />
+                                </MudStack>
+                            </MudTd>
+                            <MudTd>@context.CreatedDate.ToShortDateString()</MudTd>
+                            <MudTd>@context.LastUsedDate?.ToShortDateString()</MudTd>
+                            <MudTd>
+                                <MudStack Row="true" Spacing="1">
+                                    <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="@((e) => RevokeKey(context.Id))">Revoke</MudButton>
+                                </MudStack>
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                }
+                else
+                {
+                    <MudAlert Severity="Severity.Info">No API keys created yet</MudAlert>
+                }
+
+                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add" OnClick="GenerateNewKey">Generate New Key</MudButton>
+            </MudStack>
+
+            <MudDivider />
+
+            <!-- OAuth Connections -->
+            <MudStack>
+                <MudText Typo="TypoStyle.Subtitle2" Class="font-weight-bold">Connected OAuth Services</MudText>
+
+                <MudGrid>
+                    @foreach (var service in oauthServices)
+                    {
+                        <MudItem xs="12" sm="6">
+                            <MudCard Elevation="1">
+                                <MudCardContent>
+                                    <MudStack Spacing="2">
+                                        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                            <MudIcon Icon="@service.Icon" Size="Size.Large" Color="@service.Color" />
+                                            <MudText Typo="TypoStyle.Body1" Class="font-weight-bold">@service.Name</MudText>
+                                        </MudStack>
+                                        <MudText Typo="TypoStyle.Body1" Style="color: var(--mud-palette-text-secondary);">@service.Email</MudText>
+                                    </MudStack>
+                                </MudCardContent>
+                                <MudCardActions>
+                                    @if (service.IsConnected)
+                                    {
+                                        <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="MudBlazor.Color.Error" OnClick="@((e) => DisconnectOAuth(service.Id))">Disconnect</MudButton>
+                                    }
+                                    else
+                                    {
+                                        <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="MudBlazor.Color.Success" OnClick="@((e) => ConnectOAuth(service.Id))">Connect</MudButton>
+                                    }
+                                </MudCardActions>
+                            </MudCard>
+                        </MudItem>
+                    }
+                </MudGrid>
+            </MudStack>
+
+            <MudDivider />
+
+            <!-- Webhooks -->
+            <MudStack>
+                <MudText Typo="TypoStyle.Subtitle2" Class="font-weight-bold">Webhooks</MudText>
+
+                @if (webhooks.Count > 0)
+                {
+                    @foreach (var webhook in webhooks)
+                    {
+                        <MudPaper Elevation="0" Class="pa-3" Style="background-color: var(--mud-palette-background);">
+                            <MudStack Spacing="1">
+                                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                    <MudText Typo="TypoStyle.Body1" Class="font-weight-bold">@webhook.Url</MudText>
+                                    <MudChip T="string" Size="Size.Small" Color="@(webhook.IsActive ? MudBlazor.Color.Success : MudBlazor.Color.Error)">
+                                        @(webhook.IsActive ? "Active" : "Inactive")
+                                    </MudChip>
+                                </MudStack>
+                                <MudStack Row="true" Spacing="1">
+                                    <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="@((e) => EditWebhook(webhook.Id))">Edit</MudButton>
+                                    <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="MudBlazor.Color.Error" OnClick="@((e) => DeleteWebhook(webhook.Id))">Delete</MudButton>
+                                </MudStack>
+                            </MudStack>
+                        </MudPaper>
+                    }
+                }
+                else
+                {
+                    <MudAlert Severity="Severity.Info">No webhooks configured</MudAlert>
+                }
+
+                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add" OnClick="AddWebhook">Add Webhook</MudButton>
+            </MudStack>
+
+            <MudDivider />
+
+            <!-- Action Buttons -->
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Filled" Color="MudBlazor.Color.Primary" OnClick="SaveAPISettings">Save Settings</MudButton>
+                <MudButton Variant="Variant.Outlined" OnClick="ResetAPISettings">Cancel</MudButton>
+            </MudStack>
+        </MudStack>
+    </MudPaper>
+</MudStack>
+
+@code {
+    private class ApiKey
+    {
+        public string Id { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string Key { get; set; } = "";
+        public string MaskedKey => Key.Length > 8 ? Key[..4] + "****" + Key[^4..] : "****";
+        public DateTime CreatedDate { get; set; }
+        public DateTime? LastUsedDate { get; set; }
+    }
+
+    private class OAuthService
+    {
+        public string Id { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string Icon { get; set; } = "";
+        public MudBlazor.Color Color { get; set; }
+        public string Email { get; set; } = "";
+        public bool IsConnected { get; set; }
+    }
+
+    private class Webhook
+    {
+        public string Id { get; set; } = "";
+        public string Url { get; set; } = "";
+        public bool IsActive { get; set; }
+    }
+
+    private List<ApiKey> apiKeys = new()
+    {
+        new ApiKey { Id = "1", Name = "Development Key", Key = "sk_test_1234567890abcdef", CreatedDate = DateTime.Now.AddDays(-30), LastUsedDate = DateTime.Now.AddHours(-2) },
+        new ApiKey { Id = "2", Name = "Production Key", Key = "sk_live_abcdefghijklmnop", CreatedDate = DateTime.Now.AddDays(-90), LastUsedDate = DateTime.Now.AddHours(-1) }
+    };
+
+    private List<OAuthService> oauthServices = new()
+    {
+        new OAuthService { Id = "github", Name = "GitHub", Icon = Icons.Material.Filled.Public, Color = MudBlazor.Color.Default, Email = "user@github.com", IsConnected = true },
+        new OAuthService { Id = "google", Name = "Google", Icon = Icons.Material.Filled.Cloud, Color = MudBlazor.Color.Warning, Email = "", IsConnected = false },
+        new OAuthService { Id = "azure", Name = "Microsoft Azure", Icon = Icons.Material.Filled.Cloud, Color = MudBlazor.Color.Info, Email = "user@azure.microsoft.com", IsConnected = true },
+        new OAuthService { Id = "aws", Name = "Amazon AWS", Icon = Icons.Material.Filled.Cloud, Color = MudBlazor.Color.Warning, Email = "", IsConnected = false }
+    };
+
+    private List<Webhook> webhooks = new()
+    {
+        new Webhook { Id = "1", Url = "https://api.example.com/webhooks/events", IsActive = true }
+    };
+
+    private async Task CopyToClipboard(string text)
+    {
+        // TODO: Implement clipboard copy
+        await Task.CompletedTask;
+    }
+
+    private async Task GenerateNewKey()
+    {
+        // TODO: Implement generate new key dialog
+        await Task.CompletedTask;
+    }
+
+    private async Task RevokeKey(string keyId)
+    {
+        apiKeys.RemoveAll(k => k.Id == keyId);
+        await Task.CompletedTask;
+    }
+
+    private async Task ConnectOAuth(string serviceId)
+    {
+        var service = oauthServices.FirstOrDefault(s => s.Id == serviceId);
+        if (service != null)
+        {
+            service.IsConnected = true;
+            service.Email = "user@example.com";
+        }
+        await Task.CompletedTask;
+    }
+
+    private async Task DisconnectOAuth(string serviceId)
+    {
+        var service = oauthServices.FirstOrDefault(s => s.Id == serviceId);
+        if (service != null)
+        {
+            service.IsConnected = false;
+            service.Email = "";
+        }
+        await Task.CompletedTask;
+    }
+
+    private async Task EditWebhook(string webhookId)
+    {
+        // TODO: Implement edit webhook dialog
+        await Task.CompletedTask;
+    }
+
+    private async Task DeleteWebhook(string webhookId)
+    {
+        webhooks.RemoveAll(w => w.Id == webhookId);
+        await Task.CompletedTask;
+    }
+
+    private async Task AddWebhook()
+    {
+        // TODO: Implement add webhook dialog
+        await Task.CompletedTask;
+    }
+
+    private async Task SaveAPISettings()
+    {
+        // TODO: Implement save API settings
+        await Task.CompletedTask;
+    }
+
+    private async Task ResetAPISettings()
+    {
+        // TODO: Reset to saved settings
+        await Task.CompletedTask;
+    }
+}

@@ -1,0 +1,732 @@
+@page "/versioning"
+@inject IDatasetVersionService VersionService
+@inject IDatasetService DatasetService
+
+<PageTitle>Dataset Versioning - DS-Workbench</PageTitle>
+
+<div class="page-container">
+    <header class="page-header">
+        <div class="header-content">
+            <h1>📚 Dataset Versioning</h1>
+            <p>Git-like version control for your datasets</p>
+        </div>
+        <div class="header-actions">
+            @if (_selectedDatasetId.HasValue)
+            {
+                <button class="btn btn-primary" @onclick="CreateSnapshot" disabled="@_isProcessing">
+                    <span>📸</span> Create Snapshot
+                </button>
+            }
+        </div>
+    </header>
+
+    <!-- Dataset Selector -->
+    <div class="toolbar">
+        <div class="dataset-selector">
+            <label>Select Dataset:</label>
+            <select @bind="_selectedDatasetId" @bind:after="OnDatasetSelected">
+                <option value="">-- Select a dataset --</option>
+                @foreach (var dataset in _datasets)
+                {
+                    <option value="@dataset.Id">@dataset.Name (@dataset.Format)</option>
+                }
+            </select>
+        </div>
+        @if (_versionHistory != null)
+        {
+            <div class="version-badge">
+                <span>Versions:</span>
+                <strong>@_versionHistory.TotalVersions</strong>
+                <span class="storage">(@FormatBytes(_versionHistory.TotalStorageUsed))</span>
+            </div>
+        }
+    </div>
+
+    @if (_isProcessing)
+    {
+        <div class="processing-overlay">
+            <div class="spinner-large"></div>
+            <p>@_processingMessage</p>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="alert alert-error">
+            <span>⚠️</span> @_errorMessage
+            <button class="close-btn" @onclick="() => _errorMessage = null">×</button>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(_successMessage))
+    {
+        <div class="alert alert-success">
+            <span>✅</span> @_successMessage
+            <button class="close-btn" @onclick="() => _successMessage = null">×</button>
+        </div>
+    }
+
+    @if (_selectedDatasetId.HasValue && _versionHistory != null)
+    {
+        <div class="content-grid">
+            <!-- Version Timeline -->
+            <section class="card version-timeline">
+                <h3>📅 Version History</h3>
+                <div class="timeline">
+                    @foreach (var version in _versionHistory.Versions)
+                    {
+                        <div class="timeline-item @(version.Id == _selectedVersionId ? "selected" : "") @(version.Id == _versionHistory.CurrentVersion?.Id ? "current" : "")"
+                             @onclick="() => SelectVersion(version)">
+                            <div class="timeline-marker">
+                                <span class="version-icon">@GetVersionIcon(version.VersionType)</span>
+                            </div>
+                            <div class="timeline-content">
+                                <div class="version-header">
+                                    <span class="version-number">v@version.VersionNumber</span>
+                                    <span class="version-name">@version.Name</span>
+                                    @if (version.Id == _versionHistory.CurrentVersion?.Id)
+                                    {
+                                        <span class="current-badge">Current</span>
+                                    }
+                                </div>
+                                <div class="version-meta">
+                                    <span>@version.CreatedAt.ToString("g")</span>
+                                    <span>•</span>
+                                    <span>@version.CreatedBy</span>
+                                    <span>•</span>
+                                    <span>@FormatBytes(version.SizeBytes)</span>
+                                </div>
+                                @if (version.Metadata.ChangeStats != null)
+                                {
+                                    <div class="change-summary">
+                                        <span class="added">+@version.Metadata.ChangeStats.RowsAdded</span>
+                                        <span class="removed">-@version.Metadata.ChangeStats.RowsRemoved</span>
+                                        <span class="modified">~@version.Metadata.ChangeStats.RowsModified</span>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </section>
+
+            <!-- Version Details -->
+            <section class="card version-details">
+                @if (_selectedVersion != null)
+                {
+                    <h3>📋 Version Details</h3>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <label>Version</label>
+                            <span>v@_selectedVersion.VersionNumber</span>
+                        </div>
+                        <div class="detail-item">
+                            <label>Name</label>
+                            <span>@_selectedVersion.Name</span>
+                        </div>
+                        <div class="detail-item">
+                            <label>Type</label>
+                            <span class="type-badge @_selectedVersion.VersionType.ToString().ToLower()">
+                                @_selectedVersion.VersionType
+                            </span>
+                        </div>
+                        <div class="detail-item">
+                            <label>Status</label>
+                            <span class="status-badge @_selectedVersion.Status.ToString().ToLower()">
+                                @_selectedVersion.Status
+                            </span>
+                        </div>
+                        <div class="detail-item">
+                            <label>Created</label>
+                            <span>@_selectedVersion.CreatedAt.ToString("f")</span>
+                        </div>
+                        <div class="detail-item">
+                            <label>Created By</label>
+                            <span>@_selectedVersion.CreatedBy</span>
+                        </div>
+                        <div class="detail-item">
+                            <label>Size</label>
+                            <span>@FormatBytes(_selectedVersion.SizeBytes)</span>
+                        </div>
+                        <div class="detail-item">
+                            <label>Rows</label>
+                            <span>@_selectedVersion.Metadata.RowCount.ToString("N0")</span>
+                        </div>
+                        <div class="detail-item">
+                            <label>Columns</label>
+                            <span>@_selectedVersion.Metadata.ColumnCount</span>
+                        </div>
+                        <div class="detail-item full-width">
+                            <label>Hash</label>
+                            <code>@_selectedVersion.Hash</code>
+                        </div>
+                        @if (!string.IsNullOrEmpty(_selectedVersion.Description))
+                        {
+                            <div class="detail-item full-width">
+                                <label>Description</label>
+                                <p>@_selectedVersion.Description</p>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="action-buttons">
+                        <button class="btn btn-secondary" @onclick="ExportVersion" disabled="@_isProcessing">
+                            <span>📤</span> Export
+                        </button>
+                        @if (_selectedVersion.Id != _versionHistory?.CurrentVersion?.Id)
+                        {
+                            <button class="btn btn-warning" @onclick="ShowRollbackDialog" disabled="@_isProcessing">
+                                <span>↩️</span> Rollback
+                            </button>
+                        }
+                        <button class="btn btn-secondary" @onclick="ShowDiffDialog" disabled="@_isProcessing || _versionHistory?.Versions.Count < 2">
+                            <span>🔍</span> Compare
+                        </button>
+                        <button class="btn btn-danger" @onclick="() => _showDeleteDialog = true" disabled="@_isProcessing">
+                            <span>🗑️</span> Delete
+                        </button>
+                    </div>
+                }
+                else
+                {
+                    <div class="empty-state">
+                        <span class="icon">👈</span>
+                        <p>Select a version to view details</p>
+                    </div>
+                }
+            </section>
+
+            <!-- Storage Stats -->
+            @if (_storageStats != null)
+            {
+                <section class="card storage-stats">
+                    <h3>💾 Storage Statistics</h3>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <span class="stat-value">@_storageStats.TotalVersions</span>
+                            <span class="stat-label">Total Versions</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-value">@_storageStats.FullSnapshots</span>
+                            <span class="stat-label">Full Snapshots</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-value">@_storageStats.Deltas</span>
+                            <span class="stat-label">Deltas</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-value">@FormatBytes(_storageStats.TotalStorageBytes)</span>
+                            <span class="stat-label">Total Storage</span>
+                        </div>
+                        <div class="stat-card highlight">
+                            <span class="stat-value">@FormatBytes(_storageStats.StorageSaved)</span>
+                            <span class="stat-label">Storage Saved</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-value">@(_storageStats.CompressionRatio.ToString("P1"))</span>
+                            <span class="stat-label">Compression</span>
+                        </div>
+                    </div>
+                </section>
+            }
+        </div>
+    }
+    else if (_selectedDatasetId.HasValue)
+    {
+        <div class="empty-state large">
+            <span class="icon">📭</span>
+            <h3>No Versions Yet</h3>
+            <p>Create your first snapshot to start version tracking</p>
+            <button class="btn btn-primary" @onclick="CreateSnapshot">
+                <span>📸</span> Create First Snapshot
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="empty-state large">
+            <span class="icon">📚</span>
+            <h3>Select a Dataset</h3>
+            <p>Choose a dataset to view and manage its versions</p>
+        </div>
+    }
+</div>
+
+<!-- Snapshot Dialog -->
+@if (_showSnapshotDialog)
+{
+    <div class="modal-overlay" @onclick="() => _showSnapshotDialog = false">
+        <div class="modal" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>📸 Create Snapshot</h3>
+                <button class="close-btn" @onclick="() => _showSnapshotDialog = false">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Version Name</label>
+                    <input type="text" @bind="_snapshotName" placeholder="e.g., After data cleaning" />
+                </div>
+                <div class="form-group">
+                    <label>Description (optional)</label>
+                    <textarea @bind="_snapshotDescription" rows="3" placeholder="Describe the changes..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Strategy</label>
+                    <select @bind="_snapshotStrategy">
+                        <option value="@SnapshotStrategy.Auto">Auto (Recommended)</option>
+                        <option value="@SnapshotStrategy.FullSnapshot">Full Snapshot</option>
+                        <option value="@SnapshotStrategy.DeltaOnly">Delta Only</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="() => _showSnapshotDialog = false">Cancel</button>
+                <button class="btn btn-primary" @onclick="ConfirmSnapshot" disabled="@_isProcessing">
+                    Create Snapshot
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Rollback Dialog -->
+@if (_showRollbackDialog)
+{
+    <div class="modal-overlay" @onclick="() => _showRollbackDialog = false">
+        <div class="modal" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>↩️ Rollback to Version</h3>
+                <button class="close-btn" @onclick="() => _showRollbackDialog = false">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="warning-box">
+                    <span>⚠️</span>
+                    <p>This will create a new version that matches v@_selectedVersion?.VersionNumber</p>
+                </div>
+                <div class="form-group">
+                    <label>Reason for rollback</label>
+                    <textarea @bind="_rollbackReason" rows="2" placeholder="Why are you rolling back?"></textarea>
+                </div>
+                <div class="form-group checkbox">
+                    <input type="checkbox" @bind="_createBackup" id="createBackup" />
+                    <label for="createBackup">Create backup of current version</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="() => _showRollbackDialog = false">Cancel</button>
+                <button class="btn btn-warning" @onclick="ConfirmRollback" disabled="@_isProcessing">
+                    Rollback
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Delete Dialog -->
+@if (_showDeleteDialog)
+{
+    <div class="modal-overlay" @onclick="() => _showDeleteDialog = false">
+        <div class="modal" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>🗑️ Delete Version</h3>
+                <button class="close-btn" @onclick="() => _showDeleteDialog = false">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="danger-box">
+                    <span>⚠️</span>
+                    <p>Are you sure you want to delete v@_selectedVersion?.VersionNumber? This action cannot be undone.</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="() => _showDeleteDialog = false">Cancel</button>
+                <button class="btn btn-danger" @onclick="ConfirmDelete" disabled="@_isProcessing">
+                    Delete Version
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Diff Dialog -->
+@if (_showDiffDialog)
+{
+    <div class="modal-overlay" @onclick="() => _showDiffDialog = false">
+        <div class="modal modal-large" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>🔍 Compare Versions</h3>
+                <button class="close-btn" @onclick="() => _showDiffDialog = false">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="diff-selector">
+                    <div class="form-group">
+                        <label>From Version</label>
+                        <select @bind="_diffFromVersion">
+                            @foreach (var v in _versionHistory?.Versions ?? [])
+                            {
+                                <option value="@v.Id">v@v.VersionNumber - @v.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <span class="arrow">→</span>
+                    <div class="form-group">
+                        <label>To Version</label>
+                        <select @bind="_diffToVersion">
+                            @foreach (var v in _versionHistory?.Versions ?? [])
+                            {
+                                <option value="@v.Id">v@v.VersionNumber - @v.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" @onclick="ComputeDiff" disabled="@_isProcessing">
+                        Compare
+                    </button>
+                </div>
+
+                @if (_currentDiff != null)
+                {
+                    <div class="diff-results">
+                        <div class="diff-summary">
+                            <div class="diff-stat added">
+                                <span class="value">+@_currentDiff.RowsAdded</span>
+                                <span class="label">Added</span>
+                            </div>
+                            <div class="diff-stat removed">
+                                <span class="value">-@_currentDiff.RowsRemoved</span>
+                                <span class="label">Removed</span>
+                            </div>
+                            <div class="diff-stat modified">
+                                <span class="value">~@_currentDiff.RowsModified</span>
+                                <span class="label">Modified</span>
+                            </div>
+                            <div class="diff-stat">
+                                <span class="value">@_currentDiff.ChangePercentage.ToString("F1")%</span>
+                                <span class="label">Changed</span>
+                            </div>
+                        </div>
+
+                        @if (_currentDiff.SchemaDiff.HasSchemaChanges)
+                        {
+                            <div class="schema-changes">
+                                <h4>Schema Changes</h4>
+                                @foreach (var col in _currentDiff.SchemaDiff.ColumnsAdded)
+                                {
+                                    <span class="schema-change added">+ @col.Name</span>
+                                }
+                                @foreach (var col in _currentDiff.SchemaDiff.ColumnsRemoved)
+                                {
+                                    <span class="schema-change removed">- @col.Name</span>
+                                }
+                                @foreach (var rename in _currentDiff.SchemaDiff.ColumnsRenamed)
+                                {
+                                    <span class="schema-change renamed">@rename.OldName → @rename.NewName</span>
+                                }
+                            </div>
+                        }
+
+                        <div class="severity-badge @_currentDiff.Severity.ToString().ToLower()">
+                            Severity: @_currentDiff.Severity
+                        </div>
+                    </div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="() => _showDiffDialog = false">Close</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Dataset> _datasets = new();
+    private Guid? _selectedDatasetId;
+    private VersionHistory? _versionHistory;
+    private VersionStorageStats? _storageStats;
+    private DatasetVersion? _selectedVersion;
+    private DatasetVersionId? _selectedVersionId;
+    private DatasetDiffResult? _currentDiff;
+
+    private bool _isProcessing;
+    private string? _processingMessage;
+    private string? _errorMessage;
+    private string? _successMessage;
+
+    // Snapshot dialog
+    private bool _showSnapshotDialog;
+    private string _snapshotName = string.Empty;
+    private string _snapshotDescription = string.Empty;
+    private SnapshotStrategy _snapshotStrategy = SnapshotStrategy.Auto;
+
+    // Rollback dialog
+    private bool _showRollbackDialog;
+    private string _rollbackReason = string.Empty;
+    private bool _createBackup = true;
+
+    // Delete dialog
+    private bool _showDeleteDialog;
+
+    // Diff dialog
+    private bool _showDiffDialog;
+    private DatasetVersionId _diffFromVersion;
+    private DatasetVersionId _diffToVersion;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDatasets();
+    }
+
+    private async Task LoadDatasets()
+    {
+        _datasets = (await DatasetService.GetAllAsync()).ToList();
+    }
+
+    private async Task OnDatasetSelected()
+    {
+        if (_selectedDatasetId.HasValue)
+        {
+            await LoadVersionHistory();
+        }
+        else
+        {
+            _versionHistory = null;
+            _storageStats = null;
+            _selectedVersion = null;
+        }
+    }
+
+    private async Task LoadVersionHistory()
+    {
+        if (!_selectedDatasetId.HasValue) return;
+
+        try
+        {
+            var datasetId = new DatasetId(_selectedDatasetId.Value);
+            _versionHistory = await VersionService.GetVersionHistoryAsync(datasetId);
+            _storageStats = await VersionService.GetStorageStatsAsync(datasetId);
+
+            if (_versionHistory.CurrentVersion != null)
+            {
+                SelectVersion(_versionHistory.CurrentVersion);
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to load version history: {ex.Message}";
+        }
+    }
+
+    private void SelectVersion(DatasetVersion version)
+    {
+        _selectedVersion = version;
+        _selectedVersionId = version.Id;
+    }
+
+    private void CreateSnapshot()
+    {
+        _snapshotName = $"Version {(_versionHistory?.TotalVersions ?? 0) + 1}";
+        _snapshotDescription = string.Empty;
+        _snapshotStrategy = SnapshotStrategy.Auto;
+        _showSnapshotDialog = true;
+    }
+
+    private async Task ConfirmSnapshot()
+    {
+        if (!_selectedDatasetId.HasValue) return;
+
+        _isProcessing = true;
+        _processingMessage = "Creating snapshot...";
+        _showSnapshotDialog = false;
+
+        try
+        {
+            var dataset = _datasets.FirstOrDefault(d => d.Id == _selectedDatasetId.Value);
+            if (dataset == null || string.IsNullOrEmpty(dataset.FilePath))
+            {
+                _errorMessage = "Dataset file path not found";
+                return;
+            }
+
+            var request = new DatasetSnapshotRequest
+            {
+                DatasetId = new DatasetId(_selectedDatasetId.Value),
+                DatasetPath = dataset.FilePath,
+                Name = _snapshotName,
+                Description = _snapshotDescription,
+                Strategy = _snapshotStrategy,
+                CreatedBy = "user"
+            };
+
+            var result = await VersionService.CreateSnapshotAsync(request);
+
+            if (result.Success)
+            {
+                _successMessage = $"Snapshot created successfully using {result.UsedStrategy} strategy";
+                await LoadVersionHistory();
+            }
+            else
+            {
+                _errorMessage = result.ErrorMessage ?? "Failed to create snapshot";
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Error creating snapshot: {ex.Message}";
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+
+    private void ShowRollbackDialog()
+    {
+        _rollbackReason = string.Empty;
+        _createBackup = true;
+        _showRollbackDialog = true;
+    }
+
+    private async Task ConfirmRollback()
+    {
+        if (!_selectedDatasetId.HasValue || _selectedVersion == null) return;
+
+        _isProcessing = true;
+        _processingMessage = "Rolling back...";
+        _showRollbackDialog = false;
+
+        try
+        {
+            var request = new RollbackRequest
+            {
+                DatasetId = new DatasetId(_selectedDatasetId.Value),
+                TargetVersionId = _selectedVersion.Id,
+                Reason = _rollbackReason,
+                CreateBackup = _createBackup,
+                RequestedBy = "user"
+            };
+
+            var result = await VersionService.RollbackAsync(request);
+
+            if (result.Success)
+            {
+                _successMessage = $"Rolled back to v{_selectedVersion.VersionNumber}";
+                await LoadVersionHistory();
+            }
+            else
+            {
+                _errorMessage = result.ErrorMessage ?? "Failed to rollback";
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Error during rollback: {ex.Message}";
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (_selectedVersion == null) return;
+
+        _isProcessing = true;
+        _processingMessage = "Deleting version...";
+        _showDeleteDialog = false;
+
+        try
+        {
+            await VersionService.DeleteVersionAsync(_selectedVersion.Id);
+            _successMessage = $"Version v{_selectedVersion.VersionNumber} deleted";
+            _selectedVersion = null;
+            await LoadVersionHistory();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Error deleting version: {ex.Message}";
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+
+    private async Task ExportVersion()
+    {
+        if (_selectedVersion == null) return;
+
+        _isProcessing = true;
+        _processingMessage = "Exporting version...";
+
+        try
+        {
+            var outputPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                $"export_v{_selectedVersion.VersionNumber}_{DateTime.Now:yyyyMMddHHmmss}.csv");
+
+            await VersionService.ExportVersionAsync(_selectedVersion.Id, outputPath);
+            _successMessage = $"Exported to {outputPath}";
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Error exporting: {ex.Message}";
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+
+    private void ShowDiffDialog()
+    {
+        if (_versionHistory?.Versions.Count >= 2)
+        {
+            var versions = _versionHistory.Versions.OrderByDescending(v => v.VersionNumber).ToList();
+            _diffFromVersion = versions.ElementAtOrDefault(1)?.Id ?? default;
+            _diffToVersion = versions.FirstOrDefault()?.Id ?? default;
+            _currentDiff = null;
+            _showDiffDialog = true;
+        }
+    }
+
+    private async Task ComputeDiff()
+    {
+        _isProcessing = true;
+        _processingMessage = "Computing differences...";
+
+        try
+        {
+            _currentDiff = await VersionService.DiffAsync(_diffFromVersion, _diffToVersion);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Error computing diff: {ex.Message}";
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+
+    private static string GetVersionIcon(DatasetVersionType type) => type switch
+    {
+        DatasetVersionType.FullSnapshot => "📸",
+        DatasetVersionType.Delta => "📝",
+        DatasetVersionType.Rollback => "↩️",
+        DatasetVersionType.Import => "📥",
+        DatasetVersionType.CleaningResult => "🧹",
+        _ => "📄"
+    };
+
+    private static string FormatBytes(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB", "TB" };
+        var order = 0;
+        double size = bytes;
+        while (size >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            size /= 1024;
+        }
+        return $"{size:0.##} {sizes[order]}";
+    }
+}

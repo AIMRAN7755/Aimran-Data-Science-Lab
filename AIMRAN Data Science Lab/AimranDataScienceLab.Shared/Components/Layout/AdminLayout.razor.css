@@ -1,0 +1,137 @@
+.admin-shell {
+    display: flex;
+    height: 100vh;
+    background: #0d0d1a;
+    color: #e0e0e0;
+}
+
+/* ── Admin Sidebar ──────────────────────────────── */
+.admin-sidebar {
+    width: 240px;
+    background: #12122a;
+    border-right: 1px solid #1e1e3a;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+}
+
+.admin-brand {
+    padding: 1.25rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    border-bottom: 1px solid #1e1e3a;
+}
+
+    .admin-brand .brand-icon {
+        font-size: 1.4rem;
+    }
+
+    .admin-brand .brand-text {
+        font-weight: 700;
+        font-size: 1rem;
+        color: #fff;
+    }
+
+.admin-nav {
+    flex: 1;
+    padding: 0.75rem 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow-y: auto;
+}
+
+.admin-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: 8px;
+    color: #aaa;
+    text-decoration: none;
+    font-size: 0.88rem;
+    font-weight: 500;
+    transition: all 0.15s;
+}
+
+    .admin-nav-link:hover {
+        background: #1e1e3a;
+        color: #fff;
+    }
+
+    .admin-nav-link.active {
+        background: linear-gradient(135deg, #7c3aed22, #7c3aed11);
+        color: #a78bfa;
+        border-left: 3px solid #7c3aed;
+    }
+
+.nav-emoji {
+    font-size: 1.05rem;
+    width: 22px;
+    text-align: center;
+}
+
+.admin-sidebar-footer {
+    padding: 0.75rem 1rem;
+    border-top: 1px solid #1e1e3a;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.admin-back-link {
+    color: #888;
+    text-decoration: none;
+    font-size: 0.82rem;
+    transition: color 0.15s;
+}
+
+    .admin-back-link:hover {
+        color: #a78bfa;
+    }
+
+.admin-user-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: #ccc;
+    font-size: 0.82rem;
+}
+
+/* ── Admin Content ──────────────────────────────── */
+.admin-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 2rem;
+}
+
+/* ── Access Denied ──────────────────────────────── */
+.admin-denied {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background: #0d0d1a;
+}
+
+.denied-card {
+    text-align: center;
+    padding: 3rem;
+}
+
+.denied-icon {
+    font-size: 3rem;
+    display: block;
+    margin-bottom: 1rem;
+}
+
+.denied-card h2 {
+    color: #fff;
+    margin: 0 0 0.5rem;
+}
+
+.denied-card p {
+    color: #888;
+    margin: 0 0 1.5rem;
+}

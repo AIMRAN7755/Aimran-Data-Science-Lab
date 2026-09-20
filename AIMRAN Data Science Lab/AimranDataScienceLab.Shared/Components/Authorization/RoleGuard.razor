@@ -1,0 +1,68 @@
+@if (isLoading)
+{
+    <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+}
+else if (hasRole)
+{
+    @ChildContent
+}
+else
+{
+    @if (NoAccessContent != null)
+    {
+        @NoAccessContent
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Error" Icon="@Icons.Material.Filled.Security">
+            Access denied. You need the @RequiredRole role to access this content.
+        </MudAlert>
+    }
+}
+
+@code {
+    [Parameter]
+    public string RequiredRole { get; set; } = "";
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public RenderFragment? NoAccessContent { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private bool hasRole = false;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CheckRole();
+    }
+
+    private async Task CheckRole()
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(RequiredRole) || AuthenticationStateTask == null)
+            {
+                hasRole = true;
+                return;
+            }
+
+            var authState = await AuthenticationStateTask;
+            var user = authState.User;
+
+            if (user?.Identity?.IsAuthenticated == true)
+            {
+                var userRole = user.FindFirst(ClaimTypes.Role)?.Value ?? "";
+                hasRole = userRole.Equals(RequiredRole, StringComparison.OrdinalIgnoreCase);
+            }
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

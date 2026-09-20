@@ -1,0 +1,266 @@
+@page "/projects"
+@inject IProjectService ProjectService
+
+<PageTitle>Projects - DS-Workbench</PageTitle>
+
+<div class="page-container">
+    <header class="page-header">
+        <div class="header-content">
+            <h1>📁 Projects</h1>
+            <p>Manage your data science projects</p>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-primary" @onclick="ShowCreateDialog">
+                <span>➕</span> New Project
+            </button>
+        </div>
+    </header>
+
+    <!-- Project List -->
+    @if (_isLoading)
+    {
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Loading projects...</p>
+        </div>
+    }
+    else if (!_projects.Any())
+    {
+        <div class="empty-state">
+            <div class="empty-icon">📁</div>
+            <h3>No projects yet</h3>
+            <p>Create your first project to organize your data science work.</p>
+            <button class="btn btn-primary" @onclick="ShowCreateDialog">Create Project</button>
+        </div>
+    }
+    else
+    {
+        <div class="project-grid">
+            @foreach (var project in _projects.OrderByDescending(p => p.CreatedAt))
+            {
+                <div class="project-card @project.Status.ToString().ToLower()">
+                    <div class="project-header">
+                        <h3><a href="projects/@project.Id" class="project-name-link">@project.Name</a></h3>
+                        <span class="status-badge @project.Status.ToString().ToLower()">
+                            @GetStatusIcon(project.Status) @project.Status
+                        </span>
+                    </div>
+                    <div class="project-body">
+                        <p class="project-description">@(project.Description ?? "No description")</p>
+                        <div class="project-stats">
+                            <span>📊 @project.DatasetIds.Count datasets</span>
+                            <span>🧪 @project.ExperimentIds.Count experiments</span>
+                            <span>🤖 @project.ModelIds.Count models</span>
+                        </div>
+                        @if (project.AzureConfig is not null)
+                        {
+                            <div class="azure-connected">
+                                <span>☁️ Connected to Azure</span>
+                                <small>@project.AzureConfig.WorkspaceName</small>
+                            </div>
+                        }
+                    </div>
+                    <div class="project-footer">
+                        <span class="created-date">Created @project.CreatedAt.ToString("MMM dd, yyyy")</span>
+                        <div class="project-actions">
+                            <a class="btn-icon" href="projects/@project.Id" title="Open Workspace">🛠️</a>
+                            <button class="btn-icon" title="Edit" @onclick="() => EditProject(project)">✏️</button>
+                            @if (project.AzureConfig is null)
+                            {
+                                <button class="btn-icon cloud" title="Connect to Azure" @onclick="() => ShowAzureConnect(project)">☁️</button>
+                            }
+                            else
+                            {
+                                <button class="btn-icon" title="Disconnect Azure" @onclick="() => DisconnectAzure(project.Id)">🔌</button>
+                            }
+                            <button class="btn-icon danger" title="Delete" @onclick="() => DeleteProject(project.Id)">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    <!-- Create/Edit Dialog -->
+    @if (_showCreateDialog)
+    {
+        <div class="modal-overlay" @onclick="HideCreateDialog">
+            <div class="modal-content" @onclick:stopPropagation="true">
+                <h2>@(_editingProject is null ? "New Project" : "Edit Project")</h2>
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" @bind="_projectName" placeholder="My Data Science Project" />
+                </div>
+                <div class="form-group">
+                    <label>Local Path</label>
+                    <input type="text" @bind="_projectPath" placeholder="C:\Projects\my-ds-project" />
+                </div>
+                <div class="form-group">
+                    <label>Description (optional)</label>
+                    <textarea @bind="_projectDescription" placeholder="Describe your project..."></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" @onclick="HideCreateDialog">Cancel</button>
+                    <button class="btn btn-primary" @onclick="SaveProject">
+                        @(_editingProject is null ? "Create" : "Save")
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Azure Connect Dialog -->
+    @if (_showAzureConnectDialog && _connectingProject is not null)
+    {
+        <div class="modal-overlay" @onclick="HideAzureConnectDialog">
+            <div class="modal-content" @onclick:stopPropagation="true">
+                <h2>Connect to Azure</h2>
+                <p>Connect <strong>@_connectingProject.Name</strong> to Azure ML workspace</p>
+                <div class="form-group">
+                    <label>Subscription ID</label>
+                    <input type="text" @bind="_azureSubscriptionId" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+                </div>
+                <div class="form-group">
+                    <label>Resource Group</label>
+                    <input type="text" @bind="_azureResourceGroup" placeholder="my-resource-group" />
+                </div>
+                <div class="form-group">
+                    <label>Workspace Name</label>
+                    <input type="text" @bind="_azureWorkspaceName" placeholder="my-ml-workspace" />
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" @onclick="HideAzureConnectDialog">Cancel</button>
+                    <button class="btn btn-cloud" @onclick="ConnectToAzure">Connect</button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<Project> _projects = [];
+    private bool _isLoading = true;
+
+    // Create/Edit dialog
+    private bool _showCreateDialog;
+    private Project? _editingProject;
+    private string _projectName = "";
+    private string _projectPath = "";
+    private string _projectDescription = "";
+
+    // Azure connect dialog
+    private bool _showAzureConnectDialog;
+    private Project? _connectingProject;
+    private string _azureSubscriptionId = "";
+    private string _azureResourceGroup = "";
+    private string _azureWorkspaceName = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _isLoading = true;
+        _projects = (await ProjectService.GetAllAsync()).ToList();
+        _isLoading = false;
+    }
+
+    private void ShowCreateDialog()
+    {
+        _editingProject = null;
+        _projectName = "";
+        _projectPath = "";
+        _projectDescription = "";
+        _showCreateDialog = true;
+    }
+
+    private void EditProject(Project project)
+    {
+        _editingProject = project;
+        _projectName = project.Name;
+        _projectPath = project.LocalPath;
+        _projectDescription = project.Description ?? "";
+        _showCreateDialog = true;
+    }
+
+    private void HideCreateDialog()
+    {
+        _showCreateDialog = false;
+        _editingProject = null;
+    }
+
+    private async Task SaveProject()
+    {
+        if (string.IsNullOrWhiteSpace(_projectName) || string.IsNullOrWhiteSpace(_projectPath))
+            return;
+
+        if (_editingProject is null)
+        {
+            await ProjectService.CreateAsync(_projectName, _projectPath, _projectDescription);
+        }
+        else
+        {
+            await ProjectService.UpdateAsync(_editingProject.Id, _projectName, _projectDescription);
+        }
+
+        HideCreateDialog();
+        await LoadDataAsync();
+    }
+
+    private async Task DeleteProject(Guid id)
+    {
+        await ProjectService.DeleteAsync(id);
+        await LoadDataAsync();
+    }
+
+    private void ShowAzureConnect(Project project)
+    {
+        _connectingProject = project;
+        _azureSubscriptionId = "";
+        _azureResourceGroup = "";
+        _azureWorkspaceName = "";
+        _showAzureConnectDialog = true;
+    }
+
+    private void HideAzureConnectDialog()
+    {
+        _showAzureConnectDialog = false;
+        _connectingProject = null;
+    }
+
+    private async Task ConnectToAzure()
+    {
+        if (_connectingProject is null ||
+            string.IsNullOrWhiteSpace(_azureSubscriptionId) ||
+            string.IsNullOrWhiteSpace(_azureResourceGroup) ||
+            string.IsNullOrWhiteSpace(_azureWorkspaceName))
+            return;
+
+        var azureConfig = new AzureProjectConfig
+        {
+            SubscriptionId = _azureSubscriptionId,
+            ResourceGroupName = _azureResourceGroup,
+            WorkspaceName = _azureWorkspaceName
+        };
+
+        await ProjectService.ConnectToAzureAsync(_connectingProject.Id, azureConfig);
+        HideAzureConnectDialog();
+        await LoadDataAsync();
+    }
+
+    private async Task DisconnectAzure(Guid projectId)
+    {
+        await ProjectService.DisconnectFromAzureAsync(projectId);
+        await LoadDataAsync();
+    }
+
+    private static string GetStatusIcon(ProjectStatus status) => status switch
+    {
+        ProjectStatus.Active => "🟢",
+        ProjectStatus.Archived => "📦",
+        ProjectStatus.Completed => "✅",
+        _ => "❓"
+    };
+}

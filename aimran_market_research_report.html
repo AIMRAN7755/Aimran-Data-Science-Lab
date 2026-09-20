@@ -1,0 +1,337 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); }
+.report { padding: 1.5rem 0; max-width: 680px; }
+.section-label { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem; }
+.section-title { font-size: 22px; font-weight: 500; color: var(--text-primary); margin-bottom: 0.25rem; }
+.section-subtitle { font-size: 14px; color: var(--text-secondary); margin-bottom: 1.5rem; line-height: 1.5; }
+.divider { border: none; border-top: 0.5px solid var(--border); margin: 2rem 0; }
+.tabs { display: flex; gap: 4px; margin-bottom: 1.5rem; border-bottom: 0.5px solid var(--border); padding-bottom: 0; }
+.tab { font-size: 13px; font-weight: 500; color: var(--text-secondary); padding: 8px 14px 10px; cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent; margin-bottom: -0.5px; transition: color 0.15s; }
+.tab:hover { color: var(--text-primary); }
+.tab.active { color: var(--text-accent); border-bottom-color: var(--border-accent); }
+.panel { display: none; }
+.panel.active { display: block; }
+.comp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 1rem; }
+.comp-card { background: var(--surface-2); border: 0.5px solid var(--border); border-radius: 12px; padding: 1rem; }
+.comp-card.featured { border: 2px solid var(--border-accent); }
+.comp-name { font-size: 14px; font-weight: 500; color: var(--text-primary); margin-bottom: 4px; }
+.comp-tier { font-size: 11px; padding: 2px 8px; border-radius: var(--radius); margin-bottom: 8px; display: inline-block; }
+.tier-enterprise { background: var(--bg-danger); color: var(--text-danger); }
+.tier-open { background: var(--bg-success); color: var(--text-success); }
+.tier-cloud { background: var(--bg-accent); color: var(--text-accent); }
+.tier-aimran { background: var(--bg-pro); color: var(--text-pro); }
+.comp-price { font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; }
+.comp-strength { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+.strength-label { font-weight: 500; color: var(--text-primary); }
+.score-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.score-label { font-size: 12px; color: var(--text-secondary); width: 120px; flex-shrink: 0; }
+.score-bar-bg { flex: 1; height: 6px; background: var(--surface-1); border-radius: 3px; overflow: hidden; }
+.score-bar { height: 6px; border-radius: 3px; transition: width 0.4s ease; }
+.score-val { font-size: 11px; color: var(--text-muted); width: 28px; text-align: right; }
+.insight-card { background: var(--surface-1); border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 10px; }
+.insight-icon { font-size: 16px; margin-bottom: 6px; color: var(--text-accent); }
+.insight-title { font-size: 14px; font-weight: 500; color: var(--text-primary); margin-bottom: 4px; }
+.insight-body { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+.gap-chip { display: inline-block; font-size: 11px; padding: 3px 10px; border-radius: var(--radius); margin: 3px 3px 3px 0; }
+.gap-green { background: var(--bg-success); color: var(--text-success); }
+.gap-amber { background: var(--bg-warning); color: var(--text-warning); }
+.gap-red { background: var(--bg-danger); color: var(--text-danger); }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.form-card { background: var(--surface-2); border: 0.5px solid var(--border); border-radius: 12px; padding: 1rem; }
+.form-card.recommended { border: 2px solid var(--border-accent); }
+.form-title { font-size: 14px; font-weight: 500; color: var(--text-primary); margin-bottom: 4px; }
+.form-badge { font-size: 11px; padding: 2px 8px; border-radius: var(--radius); margin-bottom: 8px; display: inline-block; background: var(--bg-accent); color: var(--text-accent); }
+.form-desc { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+.roadmap-item { display: flex; gap: 12px; margin-bottom: 14px; align-items: flex-start; }
+.roadmap-phase { font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: var(--radius); flex-shrink: 0; white-space: nowrap; }
+.phase-now { background: var(--bg-success); color: var(--text-success); }
+.phase-q1 { background: var(--bg-accent); color: var(--text-accent); }
+.phase-q2 { background: var(--bg-warning); color: var(--text-warning); }
+.phase-q3 { background: var(--bg-danger); color: var(--text-danger); }
+.roadmap-text { font-size: 13px; color: var(--text-secondary); line-height: 1.4; }
+.roadmap-text strong { color: var(--text-primary); font-weight: 500; }
+.market-stat { text-align: center; padding: 1rem; }
+.market-num { font-size: 28px; font-weight: 500; color: var(--text-accent); }
+.market-label { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+.stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 1.5rem; }
+.stat-card { background: var(--surface-1); border-radius: var(--radius); padding: 1rem; text-align: center; }
+.ask-btn { width: 100%; text-align: left; margin-top: 1.5rem; font-size: 13px; }
+</style>
+
+<div class="report">
+<h2 class="sr-only">Aimran Data Science Lab — comprehensive market research and competitive analysis report</h2>
+
+<div class="section-label">Market research report — july 2026</div>
+<div class="section-title">Aimran Data Science Lab</div>
+<div class="section-subtitle">Comprehensive competitive analysis, positioning assessment, and go-to-market strategy for your MLOps platform.</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('market')">Market landscape</button>
+  <button class="tab" onclick="switchTab('competitors')">Competitors</button>
+  <button class="tab" onclick="switchTab('position')">Your position</button>
+  <button class="tab" onclick="switchTab('gaps')">Gaps & risks</button>
+  <button class="tab" onclick="switchTab('present')">How to present</button>
+  <button class="tab" onclick="switchTab('roadmap')">Roadmap</button>
+</div>
+
+<div id="market" class="panel active">
+  <div class="stat-row">
+    <div class="stat-card"><div class="market-num">$4.4B</div><div class="market-label">MLOps market size 2026</div></div>
+    <div class="stat-card"><div class="market-num">41%</div><div class="market-label">CAGR to 2035</div></div>
+    <div class="stat-card"><div class="market-num">$52B+</div><div class="market-label">Projected 2035 market</div></div>
+  </div>
+
+  <div class="insight-card">
+    <i class="ti ti-trending-up insight-icon" aria-hidden="true"></i>
+    <div class="insight-title">The market is exploding — but consolidating at the top</div>
+    <div class="insight-body">The global MLOps market hit $4.4B in 2026 and is on track to exceed $52B by 2035 at a 41% CAGR. However, the top tier has consolidated: Databricks, AWS SageMaker, Google Vertex AI, and Azure ML dominate enterprise. This leaves a real gap — affordable, self-hostable, multi-language platforms for mid-market, academic, and regional teams.</div>
+  </div>
+
+  <div class="insight-card">
+    <i class="ti ti-map-pin insight-icon" aria-hidden="true"></i>
+    <div class="insight-title">Asia Pacific is the fastest-growing region</div>
+    <div class="insight-body">North America holds 36–47% share, but Asia Pacific (including Pakistan's region) is growing fastest at ~18% CAGR, driven by government AI initiatives in India, China, South Korea — and increasing ML adoption across MENA and South Asia. You are building in one of the world's most underserved yet fastest-growing MLOps markets.</div>
+  </div>
+
+  <div class="insight-card">
+    <i class="ti ti-users insight-icon" aria-hidden="true"></i>
+    <div class="insight-title">The under-served segment: small teams and students</div>
+    <div class="insight-body">Enterprise platforms cost $50K–$600K/year. Open-source tools (MLflow, ClearML) require significant DevOps expertise. There is almost no polished, beginner-to-intermediate MLOps platform with a good GUI that works offline and supports multiple languages. Your platform targets this gap directly.</div>
+  </div>
+
+  <button class="tab ask-btn" onclick="sendPrompt('Can you give me more detail on the Asia Pacific and South Asia MLOps market opportunity?')">Dig deeper into the regional opportunity ↗</button>
+</div>
+
+<div id="competitors" class="panel">
+  <div class="section-label" style="margin-bottom:1rem;">Tier 1 — Enterprise giants (not your real competitors)</div>
+  <div class="comp-grid">
+    <div class="comp-card">
+      <div class="comp-name">AWS SageMaker</div>
+      <div class="comp-tier tier-cloud">Cloud-native</div>
+      <div class="comp-price">Pay-as-you-go · $$$$ at scale</div>
+      <div class="comp-strength"><span class="strength-label">Strength:</span> Deepest AWS ecosystem, shadow testing, Bedrock LLM integration. <span class="strength-label">Weakness:</span> AWS lock-in, complex billing, steep ramp.</div>
+    </div>
+    <div class="comp-card">
+      <div class="comp-name">Databricks</div>
+      <div class="comp-tier tier-cloud">Lakehouse</div>
+      <div class="comp-price">Enterprise · $$$$ per DBU</div>
+      <div class="comp-strength"><span class="strength-label">Strength:</span> Best for data engineering + ML overlap, native MLflow, Unity Catalog governance. <span class="strength-label">Weakness:</span> Expensive, not for pure ML teams.</div>
+    </div>
+    <div class="comp-card">
+      <div class="comp-name">Google Vertex AI</div>
+      <div class="comp-tier tier-cloud">Cloud-native</div>
+      <div class="comp-price">Pay-as-you-go · $$$</div>
+      <div class="comp-strength"><span class="strength-label">Strength:</span> Mature AutoML, 200+ foundation models, Gemini access. <span class="strength-label">Weakness:</span> GCP lock-in, pricing opacity, complex for beginners.</div>
+    </div>
+    <div class="comp-card">
+      <div class="comp-name">DataRobot</div>
+      <div class="comp-tier tier-enterprise">Enterprise</div>
+      <div class="comp-price">$50K–$600K/year</div>
+      <div class="comp-strength"><span class="strength-label">Strength:</span> Best enterprise AutoML, compliance, governance. <span class="strength-label">Weakness:</span> Extremely expensive, closed, no flexibility.</div>
+    </div>
+  </div>
+
+  <div class="section-label" style="margin-bottom:1rem; margin-top:1.5rem;">Tier 2 — Specialized platforms (closer competitors)</div>
+  <div class="comp-grid">
+    <div class="comp-card">
+      <div class="comp-name">H2O.ai</div>
+      <div class="comp-tier tier-enterprise">Enterprise + OSS</div>
+      <div class="comp-price">~$50K/year (negotiable)</div>
+      <div class="comp-strength"><span class="strength-label">Strength:</span> Strong AutoML (Driverless AI), open-source H2O core free. <span class="strength-label">Weakness:</span> Clunky UI, steep learning curve, not beginner-friendly.</div>
+    </div>
+    <div class="comp-card">
+      <div class="comp-name">Dataiku</div>
+      <div class="comp-tier tier-enterprise">Enterprise</div>
+      <div class="comp-price">$4K+/month</div>
+      <div class="comp-strength"><span class="strength-label">Strength:</span> Best visual flow + code hybrid. <span class="strength-label">Weakness:</span> Too expensive for most. Community edition too limited.</div>
+    </div>
+    <div class="comp-card">
+      <div class="comp-name">Weights & Biases</div>
+      <div class="comp-tier tier-open">OSS + SaaS</div>
+      <div class="comp-price">Free tier → $50/user/mo</div>
+      <div class="comp-strength"><span class="strength-label">Strength:</span> Best experiment tracking and visualization. <span class="strength-label">Weakness:</span> Tracking only — not a full MLOps platform.</div>
+    </div>
+    <div class="comp-card">
+      <div class="comp-name">ClearML</div>
+      <div class="comp-tier tier-open">OSS + SaaS</div>
+      <div class="comp-price">Free OSS, enterprise SaaS</div>
+      <div class="comp-strength"><span class="strength-label">Strength:</span> Full MLOps, self-hostable, 150K+ users. <span class="strength-label">Weakness:</span> Steep learning curve, complex setup, weak UI.</div>
+    </div>
+  </div>
+
+  <div class="section-label" style="margin-bottom:1rem; margin-top:1.5rem;">Tier 3 — Open-source foundations (tools you already use)</div>
+  <div class="comp-grid">
+    <div class="comp-card">
+      <div class="comp-name">MLflow</div>
+      <div class="comp-tier tier-open">Open source</div>
+      <div class="comp-price">Free (self-hosted)</div>
+      <div class="comp-strength"><span class="strength-label">Strength:</span> De facto standard for experiment tracking. You already integrate this. <span class="strength-label">Weakness:</span> Tracking only — no AutoML, no drift, no UI beyond experiments.</div>
+    </div>
+    <div class="comp-card">
+      <div class="comp-name">ZenML / BentoML</div>
+      <div class="comp-tier tier-open">Open source</div>
+      <div class="comp-price">Free (self-hosted)</div>
+      <div class="comp-strength"><span class="strength-label">Strength:</span> Pipeline orchestration and serving. <span class="strength-label">Weakness:</span> No GUI, no AutoML, developer-only tools.</div>
+    </div>
+  </div>
+</div>
+
+<div id="position" class="panel">
+  <div class="section-label" style="margin-bottom:1rem;">Where Aimran stands against the market</div>
+
+  <div style="margin-bottom:1.5rem;">
+    <div class="score-row"><div class="score-label">AutoML breadth</div><div class="score-bar-bg"><div class="score-bar" style="width:75%; background:#2a78d6;"></div></div><div class="score-val">30+</div></div>
+    <div class="score-row"><div class="score-label">Explainability</div><div class="score-bar-bg"><div class="score-bar" style="width:70%; background:#2a78d6;"></div></div><div class="score-val">SHAP</div></div>
+    <div class="score-row"><div class="score-label">Drift detection</div><div class="score-bar-bg"><div class="score-bar" style="width:68%; background:#2a78d6;"></div></div><div class="score-val">KS/PSI</div></div>
+    <div class="score-row"><div class="score-label">Multi-language</div><div class="score-bar-bg"><div class="score-bar" style="width:80%; background:#2a78d6;"></div></div><div class="score-val">Py+C#+R+Rust</div></div>
+    <div class="score-row"><div class="score-label">UI polish</div><div class="score-bar-bg"><div class="score-bar" style="width:40%; background:#eb6834;"></div></div><div class="score-val">Mid</div></div>
+    <div class="score-row"><div class="score-label">Production-ready</div><div class="score-bar-bg"><div class="score-bar" style="width:30%; background:#e34948;"></div></div><div class="score-val">Low</div></div>
+    <div class="score-row"><div class="score-label">Cross-platform deploy</div><div class="score-bar-bg"><div class="score-bar" style="width:65%; background:#2a78d6;"></div></div><div class="score-val">Docker/K8s</div></div>
+    <div class="score-row"><div class="score-label">LLM / GenAI support</div><div class="score-bar-bg"><div class="score-bar" style="width:10%; background:#e34948;"></div></div><div class="score-val">None</div></div>
+  </div>
+
+  <div class="insight-card">
+    <i class="ti ti-trophy insight-icon" aria-hidden="true"></i>
+    <div class="insight-title">What Aimran does that no free platform does in one place</div>
+    <div class="insight-body">AutoML (30+ algos) + SHAP explainability + drift detection + experiment tracking + multi-language orchestration (Python/C#/R/Rust) + Prometheus/Grafana monitoring + a Streamlit GUI + a CLI + a MAUI mobile app — all in one integrated, self-hostable, MIT-licensed platform. No open-source tool does all of this together. That is genuinely unique.</div>
+  </div>
+
+  <div class="insight-card">
+    <i class="ti ti-alert-triangle insight-icon" aria-hidden="true"></i>
+    <div class="insight-title">Where you fall behind enterprise tools right now</div>
+    <div class="insight-body">In-memory model registry (lost on restart), no JWT/OAuth2, no distributed processing, JSON-backed experiment storage (not PostgreSQL), C# and Rust bridges are stubs, no LLM/GenAI capabilities, and the observability module is empty. These are real gaps that matter to employers and enterprise buyers — but they are all fixable on a known roadmap.</div>
+  </div>
+</div>
+
+<div id="gaps" class="panel">
+  <div class="section-label" style="margin-bottom:0.75rem;">Critical gaps to fix before showing employers</div>
+
+  <div class="insight-card" style="border-left: 3px solid var(--border-danger); border-radius: 0 12px 12px 0;">
+    <i class="ti ti-flame insight-icon" style="color:var(--text-danger)" aria-hidden="true"></i>
+    <div class="insight-title">Showstopper gaps (fix these first)</div>
+    <div class="insight-body" style="margin-top:6px;">
+      <div class="gap-chip gap-red">In-memory model registry</div>
+      <div class="gap-chip gap-red">C# + Rust bridges = stubs</div>
+      <div class="gap-chip gap-red">v2 auth not applied</div>
+      <div class="gap-chip gap-red">No JWT / OAuth2</div>
+      <div class="gap-chip gap-red">Observability module empty</div>
+      <div class="gap-chip gap-red">Version string mismatch (0.1 vs 0.3)</div>
+      <div style="font-size:12px; color:var(--text-secondary); margin-top:8px; line-height:1.4;">Any senior engineer reviewing the code will immediately spot these. They signal the project is a proof-of-concept, not a product. Fix them before any demo.</div>
+    </div>
+  </div>
+
+  <div class="insight-card" style="border-left: 3px solid var(--border-warning); border-radius: 0 12px 12px 0;">
+    <i class="ti ti-alert-circle insight-icon" style="color:var(--text-warning)" aria-hidden="true"></i>
+    <div class="insight-title">Important gaps (fix before job interviews)</div>
+    <div class="insight-body" style="margin-top:6px;">
+      <div class="gap-chip gap-amber">No LLM/GenAI integration</div>
+      <div class="gap-chip gap-amber">No distributed processing (Dask/Spark)</div>
+      <div class="gap-chip gap-amber">JSON state → PostgreSQL migration needed</div>
+      <div class="gap-chip gap-amber">Single-process Uvicorn</div>
+      <div class="gap-chip gap-amber">No audit logging</div>
+      <div class="gap-chip gap-amber">CORS allows all origins</div>
+      <div style="font-size:12px; color:var(--text-secondary); margin-top:8px; line-height:1.4;">These won't kill a demo but will surface in technical interviews. Have answers ready, or fix them.</div>
+    </div>
+  </div>
+
+  <div class="insight-card" style="border-left: 3px solid var(--border-success); border-radius: 0 12px 12px 0;">
+    <i class="ti ti-check insight-icon" style="color:var(--text-success)" aria-hidden="true"></i>
+    <div class="insight-title">Genuine competitive strengths (your real differentiators)</div>
+    <div class="insight-body" style="margin-top:6px;">
+      <div class="gap-chip gap-green">Multi-language architecture (rare)</div>
+      <div class="gap-chip gap-green">30+ AutoML models</div>
+      <div class="gap-chip gap-green">SHAP + bias detection</div>
+      <div class="gap-chip gap-green">KS/PSI drift detection</div>
+      <div class="gap-chip gap-green">.NET MAUI mobile + desktop</div>
+      <div class="gap-chip gap-green">MIT license, self-hostable</div>
+      <div class="gap-chip gap-green">Full Docker/Compose/K8s infra</div>
+      <div class="gap-chip gap-green">27-command CLI</div>
+    </div>
+  </div>
+</div>
+
+<div id="present" class="panel">
+  <div class="section-label" style="margin-bottom:1rem;">How to present this in the real world</div>
+
+  <div class="form-grid" style="margin-bottom:1.5rem;">
+    <div class="form-card recommended">
+      <div class="form-badge">Best for jobs</div>
+      <div class="form-title">GitHub + live demo</div>
+      <div class="form-desc">Clean repo with a polished README, architecture diagram, demo video (Loom), and a deployed Streamlit demo on Hugging Face Spaces or Render.com. This is what gets you hired — recruiters spend 30 seconds on your GitHub.</div>
+    </div>
+    <div class="form-card">
+      <div class="form-title">FYP presentation</div>
+      <div class="form-desc">Position it as your BS Final Year Project. Frame the research contribution: "A self-hostable, multi-language MLOps platform for resource-constrained teams." Add a comparison table against SageMaker/Dataiku, a demo, and documented benchmarks.</div>
+    </div>
+    <div class="form-card">
+      <div class="form-title">Freelance / Upwork</div>
+      <div class="form-desc">Package it as "Custom MLOps Platform Setup" service. Target startups needing ML pipelines without enterprise costs. The Docker Compose setup means you can deliver a working system in hours.</div>
+    </div>
+    <div class="form-card">
+      <div class="form-title">Open-source product</div>
+      <div class="form-desc">Publish on GitHub with MIT license, submit to HackerNews "Show HN," ProductHunt, and the r/MachineLearning subreddit. Build a community. This is a long game (6–12 months) but creates the most durable value.</div>
+    </div>
+  </div>
+
+  <div class="insight-card">
+    <i class="ti ti-file-description insight-icon" aria-hidden="true"></i>
+    <div class="insight-title">What your README must say (the 30-second pitch)</div>
+    <div class="insight-body">"Aimran Data Science Lab is an open-source, self-hostable MLOps platform that combines AutoML (30+ models), SHAP explainability, drift detection, experiment tracking, and real-time monitoring — in a single Python + .NET MAUI stack that runs locally, on Docker, or on Kubernetes. Free. MIT licensed. No cloud account required."</div>
+  </div>
+
+  <div class="insight-card">
+    <i class="ti ti-brand-github insight-icon" aria-hidden="true"></i>
+    <div class="insight-title">GitHub repo structure that impresses hiring managers</div>
+    <div class="insight-body">Fix the README to have: a one-paragraph summary, a GIF/screenshot of the dashboard, a "vs competitors" table, a 5-minute quickstart, and architecture diagram. Pin this repo on your profile. Add a Hugging Face Spaces demo link. Make the demo work with one command: <code>docker compose up</code>.</div>
+  </div>
+
+  <div class="insight-card">
+    <i class="ti ti-presentation insight-icon" aria-hidden="true"></i>
+    <div class="insight-title">The narrative that works in interviews</div>
+    <div class="insight-body">"I built a full MLOps platform from scratch — FastAPI backend, AutoML engine, SHAP explainability, drift detection, Prometheus monitoring, a .NET MAUI desktop app, and a CLI — because enterprise platforms cost $250K/year and open-source tools require too much DevOps expertise. I wanted something a small team could spin up in minutes." This is a real story. It demonstrates systems thinking, initiative, and market awareness simultaneously.</div>
+  </div>
+</div>
+
+<div id="roadmap" class="panel">
+  <div class="section-label" style="margin-bottom:1rem;">Realistic roadmap to make this market-competitive</div>
+
+  <div class="roadmap-item">
+    <div class="roadmap-phase phase-now">Now (week 1–2)</div>
+    <div class="roadmap-text"><strong>Fix the showstoppers.</strong> Migrate model registry to Redis-backed persistence. Apply <code>require_auth</code> to v2 routes. Unify version strings to 0.3.0 everywhere. Stub the observability module with real Prometheus metrics. These are 1–2 hour fixes each — do them before any demo.</div>
+  </div>
+
+  <div class="roadmap-item">
+    <div class="roadmap-phase phase-q1">Month 1</div>
+    <div class="roadmap-text"><strong>Polish the demo path.</strong> One working end-to-end flow: upload CSV → AutoML → train → predict → SHAP explanation → drift check. Record a 3-minute demo video. Deploy the Streamlit dashboard publicly on Hugging Face Spaces. Write the real README. Publish on GitHub.</div>
+  </div>
+
+  <div class="roadmap-item">
+    <div class="roadmap-phase phase-q2">Month 2–3</div>
+    <div class="roadmap-text"><strong>Close the critical gaps.</strong> Add JWT authentication. Migrate experiment storage to PostgreSQL. Implement the C# bridge (start with subprocess, not gRPC). Add one LLM integration (OpenAI/Anthropic API for model explanation summaries). Expand test coverage to 80%+. Write a technical blog post.</div>
+  </div>
+
+  <div class="roadmap-item">
+    <div class="roadmap-phase phase-q3">Month 4–6</div>
+    <div class="roadmap-text"><strong>Build toward real differentiation.</strong> Add Dask for distributed processing. Implement federated learning support (huge gap in the market). Add a no-code pipeline builder UI. Submit to HackerNews "Show HN." Apply to YC, Khazanah, or PSEB startup grants with this as your product. Target the Pakistan/MENA regional market explicitly.</div>
+  </div>
+
+  <div class="insight-card" style="margin-top:1.5rem;">
+    <i class="ti ti-target insight-icon" aria-hidden="true"></i>
+    <div class="insight-title">The honest competitive verdict</div>
+    <div class="insight-body">You will not replace Databricks or SageMaker. But you do not need to. The real opportunity is the 90% of ML teams — students, startups, research labs, small enterprises — who cannot afford $50K/year enterprise tools and find raw MLflow too complex. Aimran, properly polished and open-sourced, is the most complete free MLOps platform for that segment that currently exists. That is a real and defensible position.</div>
+  </div>
+
+  <button class="tab ask-btn" onclick="sendPrompt('Give me a detailed technical plan to fix the showstopper gaps in Aimran: Redis-backed model registry, v2 auth, and unified versioning')">Get the technical fix plan ↗</button>
+</div>
+</div>
+
+<script>
+function switchTab(id) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById(id).classList.add('active');
+}
+</script>

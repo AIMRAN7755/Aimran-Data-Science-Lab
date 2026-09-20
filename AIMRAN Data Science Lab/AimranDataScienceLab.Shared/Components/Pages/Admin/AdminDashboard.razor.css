@@ -1,0 +1,236 @@
+/* ── Shared Admin Page Styles ─────────────────────── */
+.admin-page { max-width: 1200px; }
+.admin-title { color: #fff; font-size: 1.5rem; margin: 0 0 1.5rem; font-weight: 700; }
+.section-title { color: #ccc; font-size: 1.1rem; margin: 2rem 0 1rem; font-weight: 600; }
+.admin-loading { color: #888; display: flex; align-items: center; gap: 0.75rem; padding: 2rem 0; }
+
+/* ── Stats Grid ──────────────────────────────────── */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.stat-card {
+    background: #161630;
+    border: 1px solid #222244;
+    border-radius: 12px;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.stat-icon { font-size: 1.6rem; }
+.stat-body { display: flex; flex-direction: column; }
+.stat-value { font-size: 1.8rem; font-weight: 800; color: #fff; }
+.stat-label { font-size: 0.78rem; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+.stat-sub { display: flex; gap: 0.5rem; font-size: 0.75rem; margin-top: 0.3rem; }
+.sub-ok { color: #4ade80; }
+.sub-warn { color: #fbbf24; }
+
+/* ── Resource Bars ───────────────────────────────── */
+.resource-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1rem;
+}
+
+.resource-card {
+    background: #161630;
+    border: 1px solid #222244;
+    border-radius: 10px;
+    padding: 1rem;
+}
+
+.resource-header { color: #ccc; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.5rem; }
+.resource-value { color: #888; font-size: 0.78rem; margin-top: 0.4rem; display: block; }
+
+.progress-bar {
+    height: 8px;
+    background: #222244;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.4s;
+}
+
+.bar-ok { background: #4ade80; }
+.bar-warning { background: #fbbf24; }
+.bar-danger { background: #f87171; }
+
+/* ── Tables ──────────────────────────────────────── */
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+    .admin-table th,
+    .admin-table td {
+        padding: 0.65rem 0.8rem;
+        text-align: left;
+        border-bottom: 1px solid #1e1e3a;
+    }
+
+    .admin-table th {
+        color: #888;
+        font-weight: 600;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        background: #12122a;
+        position: sticky;
+        top: 0;
+    }
+
+    .admin-table td { color: #ddd; }
+
+    .admin-table tr:hover td { background: #161630; }
+
+/* ── Badges ──────────────────────────────────────── */
+.role-pill {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.role-Admin { background: #7c3aed33; color: #a78bfa; }
+.role-DataScientist { background: #3b82f633; color: #60a5fa; }
+.role-Analyst { background: #f59e0b33; color: #fbbf24; }
+.role-Viewer { background: #6b728033; color: #9ca3af; }
+
+.status-active { color: #4ade80; }
+.status-locked { color: #f87171; }
+
+/* ── Buttons ─────────────────────────────────────── */
+.btn { padding: 0.45rem 0.9rem; border-radius: 6px; font-size: 0.82rem; cursor: pointer; border: none; font-weight: 600; transition: all 0.15s; }
+.btn-primary { background: #7c3aed; color: #fff; }
+.btn-primary:hover { background: #6d28d9; }
+.btn-danger { background: #ef4444; color: #fff; }
+.btn-danger:hover { background: #dc2626; }
+.btn-outline { background: transparent; border: 1px solid #444; color: #ccc; }
+.btn-outline:hover { background: #1e1e3a; }
+.btn-sm { padding: 0.3rem 0.6rem; font-size: 0.78rem; }
+.btn-xs { padding: 0.2rem 0.4rem; font-size: 0.72rem; }
+
+/* ── Action Bar ──────────────────────────────────── */
+.action-bar { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
+
+/* ── Dialog / Modal ──────────────────────────────── */
+.admin-modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000;
+}
+
+.admin-modal {
+    background: #1a1a2e;
+    border: 1px solid #333;
+    border-radius: 14px;
+    padding: 2rem;
+    width: 100%;
+    max-width: 450px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+
+.admin-modal h3 { color: #fff; margin: 0 0 1.25rem; font-size: 1.1rem; }
+.form-group { margin-bottom: 1rem; }
+.form-group label { display: block; color: #aaa; font-size: 0.8rem; margin-bottom: 0.3rem; font-weight: 500; }
+
+.form-input {
+    width: 100%;
+    padding: 0.55rem 0.8rem;
+    background: #2a2a3e;
+    border: 1px solid #444;
+    border-radius: 6px;
+    color: #eee;
+    font-size: 0.85rem;
+    box-sizing: border-box;
+}
+
+.form-input:focus { outline: none; border-color: #7c3aed; }
+
+.modal-actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.25rem; }
+
+/* ── Empty State ─────────────────────────────────── */
+.admin-empty { text-align: center; color: #666; padding: 3rem 0; }
+.admin-empty-icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
+
+/* ── Spinner ─────────────────────────────────────── */
+.spinner {
+    width: 20px; height: 20px;
+    border: 2px solid #333;
+    border-top: 2px solid #7c3aed;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+}
+
+@@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Scroll wrapper ──────────────────────────────── */
+.table-scroll { overflow-x: auto; background: #12122a; border-radius: 10px; border: 1px solid #1e1e3a; }
+
+/* ── Engine Management ───────────────────────────── */
+.engines-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.engine-settings {
+    background: #161630;
+    border: 1px solid #222244;
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.subsection-title {
+    color: #ccc;
+    font-size: 1rem;
+    margin: 0 0 1rem;
+    font-weight: 600;
+}
+
+.settings-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: #aaa;
+    font-size: 0.95rem;
+    cursor: pointer;
+    user-select: none;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: #7c3aed;
+}
+
+.checkbox-label:hover {
+    color: #ccc;
+}
+
+.settings-help {
+    color: #666;
+    font-size: 0.85rem;
+    margin: 0.5rem 0 0;
+    font-style: italic;
+}

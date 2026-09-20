@@ -1,0 +1,126 @@
+﻿<!-- Sidebar brand -->
+<div class="nav-brand">
+    <span class="brand-icon">🧠</span>
+    @if (!Collapsed)
+    {
+        <span class="brand-text">AIMRAN DS Lab</span>
+    }
+</div>
+
+<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    <nav class="nav flex-column">
+        <!-- Main -->
+        @if (!Collapsed) { <div class="nav-section-title">MAIN</div> }
+        <NavLink class="nav-link" href="" Match="NavLinkMatch.All" title="Dashboard">
+            <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M6.5 14.5v-3.505c0-.245.25-.495.5-.495h2c.25 0 .5.25.5.5v3.5a.5.5 0 0 0 .5.5h4a.5.5 0 0 0 .5-.5v-7a.5.5 0 0 0-.146-.354L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.354 1.146a.5.5 0 0 0-.708 0l-6 6A.5.5 0 0 0 1.5 7.5v7a.5.5 0 0 0 .5.5h4a.5.5 0 0 0 .5-.5Z"/></svg>
+            @if (!Collapsed) { <span>Dashboard</span> }
+        </NavLink>
+        <NavLink class="nav-link" href="projects" title="Projects">
+            <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M.54 3.87.5 3a2 2 0 0 1 2-2h3.672a2 2 0 0 1 1.414.586l.828.828A2 2 0 0 0 9.828 3H13.5a2 2 0 0 1 2 2v.054a1 1 0 0 0-.986-.054H1.527a1 1 0 0 0-.986.054zM1.558 4h12.884A1.5 1.5 0 0 1 16 5.5V13a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V5.5A1.5 1.5 0 0 1 1.558 4z"/></svg>
+            @if (!Collapsed) { <span>Projects</span> }
+        </NavLink>
+
+        <!-- IDE -->
+        @if (!Collapsed) { <div class="nav-section-title">IDE</div> }
+        <NavLink class="nav-link" href="code-editor" title="Code Editor">
+            <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M5.854 4.854a.5.5 0 1 0-.708-.708l-3.5 3.5a.5.5 0 0 0 0 .708l3.5 3.5a.5.5 0 0 0 .708-.708L2.707 8l3.147-3.146zm4.292 0a.5.5 0 0 1 .708-.708l3.5 3.5a.5.5 0 0 1 0 .708l-3.5 3.5a.5.5 0 0 1-.708-.708L13.293 8l-3.147-3.146z"/></svg>
+            @if (!Collapsed) { <span>Code Editor</span> }
+        </NavLink>
+        <NavLink class="nav-link" href="notebook" title="Notebook">
+            <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M5 0h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2 2 2 0 0 1-2 2H3a2 2 0 0 1-2-2h1a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1H1a2 2 0 0 1 2-2h2V0zM1 6v-.5a.5.5 0 0 1 1 0V6h1v-.5a.5.5 0 0 1 1 0V6h1V5.5a.5.5 0 0 1 1 0V6h4V4.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5V6h.5a.5.5 0 0 1 0 1H12v1.5a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5V7H5v.5a.5.5 0 0 1-1 0V7H3v.5a.5.5 0 0 1-1 0V7H1v-.5a.5.5 0 0 1 0-1z"/></svg>
+            @if (!Collapsed) { <span>Notebook</span> }
+        </NavLink>
+
+        <!-- Data -->
+        @if (!Collapsed) { <div class="nav-section-title">DATA</div> }
+        <NavLink class="nav-link" href="datasets" title="Datasets">
+            <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><ellipse cx="8" cy="3.5" rx="7" ry="2.5"/><path d="M15 3.5c0 1.38-3.134 2.5-7 2.5S1 4.88 1 3.5V6c0 1.38 3.134 2.5 7 2.5s7-1.12 7-2.5V3.5z"/><path d="M15 6c0 1.38-3.134 2.5-7 2.5S1 7.38 1 6v2.5c0 1.38 3.134 2.5 7 2.5s7-1.12 7-2.5V6z"/><path d="M15 8.5c0 1.38-3.134 2.5-7 2.5S1 9.88 1 8.5V11c0 1.38 3.134 2.5 7 2.5s7-1.12 7-2.5V8.5z"/></svg>
+            @if (!Collapsed) { <span>Datasets</span> }
+        </NavLink>
+        <NavLink class="nav-link" href="data-viewer" title="Data Viewer">
+            <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M0 2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2zm15 2h-4v3h4V4zm0 4h-4v3h4V8zm0 4h-4v3h3a1 1 0 0 0 1-1v-2zm-5 3v-3H6v3h4zm-5 0v-3H1v2a1 1 0 0 0 1 1h3zm-4-4h4V8H1v3zm0-4h4V4H1v3zm5-3v3h4V4H6zm4 4H6v3h4V8z"/></svg>
+            @if (!Collapsed) { <span>Data Viewer</span> }
+        </NavLink>
+        <NavLink class="nav-link" href="versioning" title="Versioning">
+            <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/><path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/></svg>
+            @if (!Collapsed) { <span>Versioning</span> }
+        </NavLink>
+        <NavLink class="nav-link" href="data-cleaning" title="Data Cleaning">
+            <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M15.825.12a.5.5 0 0 1 .132.584c-1.53 3.43-4.743 8.17-7.095 10.64a6.1 6.1 0 0 1-2.373 1.534c-.018.227-.06.538-.16.868-.201.659-.667 1.479-1.708 1.74a8.1 8.1 0 0 1-3.078.132 4 4 0 0 1-.562-.135 1.382 1.382 0 0 1-.466-.247.714.714 0 0 1-.204-.288.622.622 0 0 1 .004-.443c.095-.245.316-.38.461-.452.394-.197.625-.453.867-.826.095-.144.184-.297.287-.472l.117-.198c.151-.255.326-.54.546-.848.528-.739 1.201-.925 1.746-.896.126.007.243.025.348.048.062-.172.091-.338.091-.502 0-.658-.373-1.486-1.082-2.195C2.874 8.39.135 5.178.012 1.7a.5.5 0 0 1 .649-.49c1.814.547 3.462 1.072 4.956 1.699 1.602.673 2.908 1.39 3.965 2.274 2.168 1.812 3.073 4.14 3.073 5.817 0 .527-.073 1.026-.208 1.483C13.722 11.24 15.1 8.038 15.825.12z"/></svg>
+            @if (!Collapsed) { <span>Data Cleaning</span> }
+        </NavLink>
+
+        <!-- Visualization -->
+        @if (!Collapsed) { <div class="nav-section-title">VISUALIZATION</div> }
+        <NavLink class="nav-link" href="visualization" title="Chart Builder">
+            <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M4 11H2v3h2v-3zm5-4H7v7h2V7zm5-5h-2v12h2V2zm-2-1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1h-2zM6 7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7zm-5 4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-3z"/></svg>
+            @if (!Collapsed) { <span>Chart Builder</span> }
+        </NavLink>
+
+        <!-- ML Pipeline -->
+        @if (!Collapsed) { <div class="nav-section-title">ML PIPELINE</div> }
+        <NavLink class="nav-link" href="experiments" title="Experiments">
+            <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" d="M0 0h1v15h15v1H0V0zm14.817 3.113a.5.5 0 0 1 .07.704l-4.5 5.5a.5.5 0 0 1-.74.037L7.06 6.767l-3.656 5.027a.5.5 0 0 1-.808-.588l4-5.5a.5.5 0 0 1 .758-.06l2.609 2.61 4.15-5.073a.5.5 0 0 1 .704-.07z"/></svg>
+            @if (!Collapsed) { <span>Experiments</span> }
+        </NavLink>
+        <NavLink class="nav-link" href="models" title="Model Lab">
+            <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M5 0a.5.5 0 0 1 .5.5V2h1V.5a.5.5 0 0 1 1 0V2h1V.5a.5.5 0 0 1 1 0V2h1V.5a.5.5 0 0 1 1 0V2A2.5 2.5 0 0 1 14 4.5h1.5a.5.5 0 0 1 0 1H14v1h1.5a.5.5 0 0 1 0 1H14v1h1.5a.5.5 0 0 1 0 1H14v1h1.5a.5.5 0 0 1 0 1H14a2.5 2.5 0 0 1-2.5 2.5v1.5a.5.5 0 0 1-1 0V14h-1v1.5a.5.5 0 0 1-1 0V14h-1v1.5a.5.5 0 0 1-1 0V14h-1v1.5a.5.5 0 0 1-1 0V14A2.5 2.5 0 0 1 2 11.5H.5a.5.5 0 0 1 0-1H2v-1H.5a.5.5 0 0 1 0-1H2v-1H.5a.5.5 0 0 1 0-1H2v-1H.5a.5.5 0 0 1 0-1H2A2.5 2.5 0 0 1 4.5 2V.5A.5.5 0 0 1 5 0zm-.5 3A1.5 1.5 0 0 0 3 4.5v7A1.5 1.5 0 0 0 4.5 13h7a1.5 1.5 0 0 0 1.5-1.5v-7A1.5 1.5 0 0 0 11.5 3h-7zM5 6.5A1.5 1.5 0 0 1 6.5 5h3A1.5 1.5 0 0 1 11 6.5v3A1.5 1.5 0 0 1 9.5 11h-3A1.5 1.5 0 0 1 5 9.5v-3z"/></svg>
+            @if (!Collapsed) { <span>Model Lab</span> }
+        </NavLink>
+
+        <!-- Tools -->
+        @if (!Collapsed) { <div class="nav-section-title">TOOLS</div> }
+        <NavLink class="nav-link" href="packages" title="Packages">
+            <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/></svg>
+            @if (!Collapsed) { <span>Packages</span> }
+        </NavLink>
+        <NavLink class="nav-link" href="knowledge" title="Knowledge Center">
+            <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M1 2.828c.885-.37 2.154-.769 3.388-.893 1.33-.134 2.458.063 3.112.752v9.746c-.935-.53-2.12-.603-3.213-.493-1.18.12-2.37.461-3.287.811V2.828zm7.5-.141c.654-.689 1.782-.886 3.112-.752 1.234.124 2.503.523 3.388.893v9.923c-.918-.35-2.107-.692-3.287-.81-1.094-.111-2.278-.039-3.213.492V2.687zM8 1.783C7.015.936 5.587.81 4.287.94c-1.514.153-3.042.672-3.994 1.105A.5.5 0 0 0 0 2.5v10a.5.5 0 0 0 .707.455c.882-.4 2.303-.881 3.68-1.02 1.409-.142 2.59.087 3.223.877a.5.5 0 0 0 .78 0c.633-.79 1.814-1.019 3.222-.877 1.378.139 2.8.62 3.681 1.02A.5.5 0 0 0 16 12.5v-10a.5.5 0 0 0-.293-.455c-.952-.433-2.48-.952-3.994-1.105C10.413.809 8.985.936 8 1.783z"/></svg>
+            @if (!Collapsed) { <span>Knowledge Center</span> }
+        </NavLink>
+
+        <!-- System -->
+        @if (!Collapsed) { <div class="nav-section-title">SYSTEM</div> }
+        <NavLink class="nav-link" href="ai-engine" title="AI Engine">
+            <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M7.068.727c.243-.97 1.62-.97 1.864 0l.071.286a.96.96 0 0 0 1.622.434l.205-.211c.695-.719 1.888-.03 1.613.931l-.08.284a.96.96 0 0 0 1.187 1.187l.283-.081c.96-.275 1.65.918.931 1.613l-.211.205a.96.96 0 0 0 .434 1.622l.286.071c.97.243.97 1.62 0 1.864l-.286.071a.96.96 0 0 0-.434 1.622l.211.205c.719.695.03 1.888-.931 1.613l-.284-.08a.96.96 0 0 0-1.187 1.187l.081.283c.275.96-.918 1.65-1.613.931l-.205-.211a.96.96 0 0 0-1.622.434l-.071.286c-.243.97-1.62.97-1.864 0l-.071-.286a.96.96 0 0 0-1.622-.434l-.205.211c-.695.719-1.888.03-1.613-.931l.08-.284a.96.96 0 0 0-1.186-1.187l-.284.081c-.96.275-1.65-.918-.931-1.613l.211-.205a.96.96 0 0 0-.434-1.622l-.286-.071c-.97-.243-.97-1.62 0-1.864l.286-.071a.96.96 0 0 0 .434-1.622l-.211-.205c-.719-.695-.03-1.888.931-1.613l.284.08a.96.96 0 0 0 1.187-1.186l-.081-.284c-.275-.96.918-1.65 1.613-.931l.205.211a.96.96 0 0 0 1.622-.434l.071-.286zM12.973 8.5H8.25l-2.834 3.779A4.998 4.998 0 0 0 12.973 8.5zm0-1a4.998 4.998 0 0 0-7.557-3.779L8.25 7.5h4.723zM5.048 3.967c-.03.021-.058.043-.087.065l.087-.065zm-.431.355A4.995 4.995 0 0 0 3.002 8c0 1.455.622 2.765 1.615 3.678L7.375 8 4.617 4.322zm.344 7.646.087.065-.087-.065z"/></svg>
+            @if (!Collapsed) { <span>AI Engine</span> }
+        </NavLink>
+        <NavLink class="nav-link" href="plugins" title="Plugins">
+            <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M6 0a.5.5 0 0 1 .5.5V3h3V.5a.5.5 0 0 1 1 0V3h1a.5.5 0 0 1 .5.5v3A3.5 3.5 0 0 1 8.5 10c-.002.434-.01.845-.04 1.22-.041.514-.126 1.003-.317 1.424a2.083 2.083 0 0 1-.97 1.028C6.725 13.9 6.169 14 5.5 14c-.998 0-1.61.33-1.974.718A1.922 1.922 0 0 0 3 16H2c0-.616.232-1.367.797-1.968C3.374 13.42 4.261 13 5.5 13c.581 0 .962-.088 1.218-.219.241-.123.4-.3.514-.55.121-.266.193-.621.23-1.09.027-.34.035-.718.037-1.141A3.5 3.5 0 0 1 4 6.5v-3a.5.5 0 0 1 .5-.5h1V.5A.5.5 0 0 1 6 0z"/></svg>
+            @if (!Collapsed) { <span>Plugins</span> }
+        </NavLink>
+        <NavLink class="nav-link" href="extensions" title="Extensions">
+            <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M14.5 3a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h13zm-13-1A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-13z"/><path d="M7 5.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5zm-1.496-.854a.5.5 0 0 1 0 .708l-1.5 1.5a.5.5 0 0 1-.708 0l-.5-.5a.5.5 0 1 1 .708-.708l.146.147 1.146-1.147a.5.5 0 0 1 .708 0zM7 9.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5zm-1.496-.854a.5.5 0 0 1 0 .708l-1.5 1.5a.5.5 0 0 1-.708 0l-.5-.5a.5.5 0 0 1 .708-.708l.146.147 1.146-1.147a.5.5 0 0 1 .708 0z"/></svg>
+            @if (!Collapsed) { <span>Extensions</span> }
+        </NavLink>
+        <NavLink class="nav-link" href="resources" title="Resources">
+            <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 2a.5.5 0 0 1 .5.5V4a.5.5 0 0 1-1 0V2.5A.5.5 0 0 1 8 2zM3.732 3.732a.5.5 0 0 1 .707 0l1.061 1.06a.5.5 0 0 1-.707.708l-1.06-1.06a.5.5 0 0 1 0-.708zM2 8a.5.5 0 0 1 .5-.5h1.5a.5.5 0 0 1 0 1H2.5A.5.5 0 0 1 2 8zm9.5 0a.5.5 0 0 1 .5-.5h1.5a.5.5 0 0 1 0 1H12a.5.5 0 0 1-.5-.5zm.754-4.246a.5.5 0 0 0-.708 0L9.478 5.822a3 3 0 1 0 .707.707l2.068-2.068a.5.5 0 0 0 0-.707zM8 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/></svg>
+            @if (!Collapsed) { <span>Resources</span> }
+        </NavLink>
+
+        <!-- Cloud -->
+        @if (!Collapsed) { <div class="nav-section-title">CLOUD</div> }
+        <NavLink class="nav-link" href="azure" title="Azure">
+            <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M4.406 3.342A5.53 5.53 0 0 1 8 2c2.69 0 4.923 2 5.166 4.579C14.758 6.804 16 8.137 16 9.773 16 11.569 14.502 13 12.687 13H3.781C1.708 13 0 11.366 0 9.318c0-1.763 1.266-3.223 2.942-3.593.143-.863.698-1.723 1.464-2.383z"/></svg>
+            @if (!Collapsed) { <span>Azure</span> }
+        </NavLink>
+
+        <!-- Admin -->
+        @if (!Collapsed) { <div class="nav-section-title">ADMIN</div> }
+        <NavLink class="nav-link" href="admin" title="Admin Console">
+            <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M7.068.727c.243-.97 1.62-.97 1.864 0l.071.286a.96.96 0 0 0 1.622.434l.205-.211c.695-.719 1.888-.03 1.613.931l-.08.284a.96.96 0 0 0 1.187 1.187l.283-.081c.96-.275 1.65.918.931 1.613l-.211.205a.96.96 0 0 0 .434 1.622l.286.071c.97.243.97 1.62 0 1.864l-.286.071a.96.96 0 0 0-.434 1.622l.211.205c.719.695.03 1.888-.931 1.613l-.284-.08a.96.96 0 0 0-1.187 1.187l.081.283c.275.96-.918 1.65-1.613.931l-.205-.211a.96.96 0 0 0-1.622.434l-.071.286c-.243.97-1.62.97-1.864 0l-.071-.286a.96.96 0 0 0-1.622-.434l-.205.211c-.695.719-1.888.03-1.613-.931l.08-.284a.96.96 0 0 0-1.186-1.187l-.284.081c-.96.275-1.65-.918-.931-1.613l.211-.205a.96.96 0 0 0-.434-1.622l-.286-.071c-.97-.243-.97-1.62 0-1.864l.286-.071a.96.96 0 0 0 .434-1.622l-.211-.205c-.719-.695-.03-1.888.931-1.613l.284.08a.96.96 0 0 0 1.187-1.186l-.081-.284c-.275-.96.918-1.65 1.613-.931l.205.211a.96.96 0 0 0 1.622-.434zM8 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/></svg>
+            @if (!Collapsed) { <span>Admin Console</span> }
+        </NavLink>
+        <NavLink class="nav-link" href="security" title="Security">
+            <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M5.338 1.59a61 61 0 0 0-2.837.856.48.48 0 0 0-.328.39c-.554 4.157.726 7.19 2.253 9.188a10.7 10.7 0 0 0 2.287 2.233c.346.244.652.42.893.533q.18.085.293.118a1 1 0 0 0 .101.025 1 1 0 0 0 .101-.025 2 2 0 0 0 .293-.118 5.2 5.2 0 0 0 .893-.533 10.7 10.7 0 0 0 2.287-2.233c1.527-1.997 2.807-5.031 2.253-9.188a.48.48 0 0 0-.328-.39c-.651-.213-1.75-.56-2.837-.855C9.552 1.29 8.531 1.067 8 1.067c-.53 0-1.552.223-2.662.524zM5.072.56C6.157.265 7.31 0 8 0s1.843.265 2.928.56c1.11.3 2.229.655 2.887.87a1.54 1.54 0 0 1 1.044 1.262c.596 4.477-.787 7.795-2.465 9.99a11.8 11.8 0 0 1-2.517 2.453 7 7 0 0 1-1.048.625c-.28.132-.581.24-.829.24s-.548-.108-.829-.24a7 7 0 0 1-1.048-.625 11.8 11.8 0 0 1-2.517-2.453C1.928 10.487.545 7.169 1.141 2.692A1.54 1.54 0 0 1 2.185 1.43 63 63 0 0 1 5.072.56"/></svg>
+            @if (!Collapsed) { <span>Security</span> }
+        </NavLink>
+    </nav>
+</div>
+
+@code {
+    [Parameter]
+    public bool Collapsed { get; set; }
+}

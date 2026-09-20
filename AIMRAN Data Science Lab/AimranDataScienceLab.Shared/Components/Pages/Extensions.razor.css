@@ -1,0 +1,298 @@
+/* ── Extensions Page ────────────────────────────────────────── */
+
+.page-container {
+    padding: 1.5rem 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+    .page-header h1 {
+        margin: 0;
+        font-size: 1.5rem;
+    }
+
+    .page-header p {
+        margin: 0.25rem 0 0;
+        color: #888;
+        font-size: 0.85rem;
+    }
+
+/* ── Stats Strip ──────────────────────────────────────────── */
+
+.ext-stats {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.ext-stat {
+    background: #1e1e2e;
+    border-radius: 8px;
+    padding: 0.75rem 1.25rem;
+    text-align: center;
+    flex: 1;
+    border: 1px solid #333;
+}
+
+    .ext-stat.active {
+        border-color: #4caf50;
+    }
+
+    .ext-stat.disabled {
+        border-color: #888;
+    }
+
+    .ext-stat.error {
+        border-color: #e74c3c;
+    }
+
+.ext-stat-value {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #e0e0e0;
+}
+
+.ext-stat-label {
+    display: block;
+    font-size: 0.75rem;
+    color: #888;
+    text-transform: uppercase;
+    margin-top: 0.15rem;
+}
+
+/* ── Extension Card Grid ──────────────────────────────────── */
+
+.ext-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.ext-card {
+    background: #1e1e2e;
+    border: 1px solid #333;
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    transition: border-color 0.2s;
+}
+
+    .ext-card.active {
+        border-color: #4caf50;
+    }
+
+    .ext-card.error {
+        border-color: #e74c3c;
+    }
+
+    .ext-card:hover {
+        border-color: #555;
+    }
+
+.ext-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.5rem;
+}
+
+.ext-info {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.ext-icon {
+    font-size: 1.5rem;
+}
+
+.ext-info h3 {
+    margin: 0;
+    font-size: 1rem;
+    color: #e0e0e0;
+}
+
+.ext-info small {
+    color: #888;
+    font-size: 0.75rem;
+}
+
+.ext-state-badge {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    text-transform: uppercase;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+    .ext-state-badge.active {
+        background: rgba(76, 175, 80, 0.15);
+        color: #4caf50;
+    }
+
+    .ext-state-badge.disabled {
+        background: rgba(136, 136, 136, 0.15);
+        color: #888;
+    }
+
+    .ext-state-badge.error {
+        background: rgba(231, 76, 60, 0.15);
+        color: #e74c3c;
+    }
+
+    .ext-state-badge.discovered,
+    .ext-state-badge.loading {
+        background: rgba(52, 152, 219, 0.15);
+        color: #3498db;
+    }
+
+.ext-description {
+    color: #aaa;
+    font-size: 0.85rem;
+    margin: 0.5rem 0;
+    line-height: 1.4;
+}
+
+.ext-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0.75rem 0;
+    font-size: 0.75rem;
+    color: #888;
+}
+
+    .ext-meta span {
+        background: #252535;
+        padding: 0.15rem 0.4rem;
+        border-radius: 4px;
+    }
+
+.ext-error {
+    background: rgba(231, 76, 60, 0.1);
+    border: 1px solid rgba(231, 76, 60, 0.3);
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    margin: 0.5rem 0;
+    font-size: 0.8rem;
+    color: #e74c3c;
+}
+
+.ext-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+/* ── Commands Section ─────────────────────────────────────── */
+
+.ext-section {
+    margin-top: 2rem;
+}
+
+    .ext-section h2 {
+        font-size: 1.1rem;
+        margin-bottom: 0.75rem;
+    }
+
+.ext-commands {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.cmd-btn {
+    background: #252535;
+    border: 1px solid #444;
+    border-radius: 6px;
+    padding: 0.4rem 0.75rem;
+    color: #e0e0e0;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: background 0.2s;
+}
+
+    .cmd-btn:hover {
+        background: #333;
+    }
+
+/* ── Toast ────────────────────────────────────────────────── */
+
+.ext-toast {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.85rem;
+    z-index: 1000;
+    animation: slideIn 0.3s ease;
+}
+
+    .ext-toast.success {
+        background: #1b5e20;
+        color: #c8e6c9;
+    }
+
+    .ext-toast.error {
+        background: #b71c1c;
+        color: #ffcdd2;
+    }
+
+    .ext-toast.info {
+        background: #1a237e;
+        color: #c5cae9;
+    }
+
+.toast-close {
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+/* ── Shared States ────────────────────────────────────────── */
+
+.loading-state,
+.empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #888;
+}
+
+.empty-icon {
+    font-size: 3rem;
+    margin-bottom: 0.5rem;
+}
+
+.spinner {
+    width: 36px;
+    height: 36px;
+    border: 3px solid #333;
+    border-top-color: #4caf50;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin: 0 auto 1rem;
+}
+
+@@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+@@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}

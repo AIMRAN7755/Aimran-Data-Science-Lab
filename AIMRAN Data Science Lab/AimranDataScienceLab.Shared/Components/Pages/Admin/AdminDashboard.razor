@@ -1,0 +1,250 @@
+@page "/admin"
+@layout AdminLayout
+@inject IAdminService AdminService
+@inject IResourceMonitorService ResourceMonitor
+@inject IEngineManager EngineManager
+
+<PageTitle>Admin Dashboard - AIMRAN</PageTitle>
+
+<div class="admin-page">
+    <h1 class="admin-title">📊 System Overview</h1>
+
+    @if (_stats is null)
+    {
+        <div class="admin-loading"><div class="spinner"></div> Loading dashboard...</div>
+    }
+    else
+    {
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-card stat-users">
+                <div class="stat-icon">👥</div>
+                <div class="stat-body">
+                    <span class="stat-value">@_stats.TotalUsers</span>
+                    <span class="stat-label">Total Users</span>
+                </div>
+                <div class="stat-sub">
+                    <span class="sub-ok">@_stats.ActiveUsers active</span>
+                    @if (_stats.LockedUsers > 0)
+                    {
+                        <span class="sub-warn">@_stats.LockedUsers locked</span>
+                    }
+                </div>
+            </div>
+            <div class="stat-card stat-projects">
+                <div class="stat-icon">📁</div>
+                <div class="stat-body">
+                    <span class="stat-value">@_stats.TotalProjects</span>
+                    <span class="stat-label">Projects</span>
+                </div>
+            </div>
+            <div class="stat-card stat-datasets">
+                <div class="stat-icon">📂</div>
+                <div class="stat-body">
+                    <span class="stat-value">@_stats.TotalDatasets</span>
+                    <span class="stat-label">Datasets</span>
+                </div>
+            </div>
+            <div class="stat-card stat-models">
+                <div class="stat-icon">🧠</div>
+                <div class="stat-body">
+                    <span class="stat-value">@_stats.TotalModels</span>
+                    <span class="stat-label">Models</span>
+                </div>
+            </div>
+            <div class="stat-card stat-experiments">
+                <div class="stat-icon">🧪</div>
+                <div class="stat-body">
+                    <span class="stat-value">@_stats.TotalExperiments</span>
+                    <span class="stat-label">Experiments</span>
+                </div>
+            </div>
+            <div class="stat-card stat-storage">
+                <div class="stat-icon">💾</div>
+                <div class="stat-body">
+                    <span class="stat-value">@FormatBytes(_stats.TotalStorageUsedBytes)</span>
+                    <span class="stat-label">Storage Used</span>
+                </div>
+            </div>
+            <div class="stat-card stat-audit">
+                <div class="stat-icon">📋</div>
+                <div class="stat-body">
+                    <span class="stat-value">@_stats.AuditEventsToday</span>
+                    <span class="stat-label">Events Today</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Resource Metrics -->
+        @if (_metrics is not null)
+        {
+            <h2 class="section-title">⚡ System Resources</h2>
+            <div class="resource-grid">
+                <div class="resource-card">
+                    <div class="resource-header">CPU</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill @GetBarClass(_metrics.Cpu.UsagePercent)"
+                             style="width: @(_metrics.Cpu.UsagePercent)%"></div>
+                    </div>
+                    <span class="resource-value">@_metrics.Cpu.UsagePercent.ToString("F0")%</span>
+                </div>
+                <div class="resource-card">
+                    <div class="resource-header">Memory</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill @GetBarClass(_metrics.Memory.UsagePercent)"
+                             style="width: @(_metrics.Memory.UsagePercent)%"></div>
+                    </div>
+                    <span class="resource-value">
+                        @FormatBytes(_metrics.Memory.UsedBytes) / @FormatBytes(_metrics.Memory.TotalBytes)
+                    </span>
+                </div>
+                <div class="resource-card">
+                    <div class="resource-header">Disk</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill @GetBarClass(_metrics.Disk.UsagePercent)"
+                             style="width: @(_metrics.Disk.UsagePercent)%"></div>
+                    </div>
+                    <span class="resource-value">
+                        @FormatBytes(_metrics.Disk.UsedBytes) / @FormatBytes(_metrics.Disk.TotalBytes)
+                    </span>
+                </div>
+                @if (_metrics.Gpu is not null)
+                {
+                    <div class="resource-card">
+                        <div class="resource-header">GPU — @_metrics.Gpu.Name</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill @GetBarClass(_metrics.Gpu.UsagePercent)"
+                                 style="width: @(_metrics.Gpu.UsagePercent)%"></div>
+                        </div>
+                        <span class="resource-value">@_metrics.Gpu.UsagePercent.ToString("F0")% · @_metrics.Gpu.TemperatureCelsius.ToString("F0")°C</span>
+                    </div>
+                }
+            </div>
+        }
+
+        <!-- ── Engine Management (Desktop Deployment) ── -->
+        <h2 class="section-title">⚙️ External Engines</h2>
+        <div class="engines-grid">
+            <EngineControl Engine="ExternalEngine.Python" />
+            <EngineControl Engine="ExternalEngine.Rust" />
+            <EngineControl Engine="ExternalEngine.R" />
+        </div>
+
+        <!-- Engine Auto-Start Configuration -->
+        <div class="engine-settings">
+            <h3 class="subsection-title">🔧 Engine Settings</h3>
+            <div class="settings-content">
+                <label class="checkbox-label">
+                    <input type="checkbox" 
+                           checked="@_autoStartEngines" 
+                           @onchange="OnAutoStartChanged" />
+                    <span>Auto-start engines on app launch</span>
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" 
+                           checked="@_autoRestartEngines" 
+                           @onchange="OnAutoRestartChanged" />
+                    <span>Auto-restart failed engines</span>
+                </label>
+                <p class="settings-help">These settings are saved to app preferences.</p>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private AdminDashboardStats? _stats;
+    private ResourceMetrics? _metrics;
+    private bool _autoStartEngines;
+    private bool _autoRestartEngines;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _stats = await AdminService.GetDashboardStatsAsync();
+        try { _metrics = await ResourceMonitor.GetCurrentMetricsAsync(); } catch { /* optional */ }
+
+        // Load engine settings from preferences
+        _autoStartEngines = GetPreference("AutoStartEngines", true);
+        _autoRestartEngines = GetPreference("AutoRestartEngines", false);
+    }
+
+    private void OnAutoStartChanged(ChangeEventArgs e)
+    {
+        _autoStartEngines = (bool)(e.Value ?? false);
+        SavePreferences();
+    }
+
+    private void OnAutoRestartChanged(ChangeEventArgs e)
+    {
+        _autoRestartEngines = (bool)(e.Value ?? false);
+        SavePreferences();
+    }
+
+    private void SavePreferences()
+    {
+        try
+        {
+            // Try to use MAUI Preferences if available
+            var preferencesType = Type.GetType("Microsoft.Maui.Storage.Preferences, Microsoft.Maui.Storage");
+            if (preferencesType != null)
+            {
+                var defaultProperty = preferencesType.GetProperty("Default");
+                if (defaultProperty != null)
+                {
+                    var preferencesDefault = defaultProperty.GetValue(null);
+                    var setMethod = preferencesType.GetMethod("Set", new[] { typeof(string), typeof(bool) });
+
+                    setMethod?.Invoke(preferencesDefault, new object[] { "AutoStartEngines", _autoStartEngines });
+                    setMethod?.Invoke(preferencesDefault, new object[] { "AutoRestartEngines", _autoRestartEngines });
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error saving preferences: {ex.Message}");
+        }
+    }
+
+    private bool GetPreference(string key, bool defaultValue)
+    {
+        try
+        {
+            // Try to use MAUI Preferences if available
+            var preferencesType = Type.GetType("Microsoft.Maui.Storage.Preferences, Microsoft.Maui.Storage");
+            if (preferencesType != null)
+            {
+                var defaultProperty = preferencesType.GetProperty("Default");
+                if (defaultProperty != null)
+                {
+                    var preferencesDefault = defaultProperty.GetValue(null);
+                    var getMethod = preferencesType.GetMethod("Get", new[] { typeof(string), typeof(bool) });
+
+                    var result = getMethod?.Invoke(preferencesDefault, new object[] { key, defaultValue });
+                    return (bool)(result ?? defaultValue);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error getting preference: {ex.Message}");
+        }
+
+        return defaultValue;
+    }
+
+    private static string FormatBytes(long bytes) => bytes switch
+    {
+        >= 1_099_511_627_776 => $"{bytes / 1_099_511_627_776.0:F1} TB",
+        >= 1_073_741_824 => $"{bytes / 1_073_741_824.0:F1} GB",
+        >= 1_048_576 => $"{bytes / 1_048_576.0:F1} MB",
+        >= 1024 => $"{bytes / 1024.0:F0} KB",
+        _ => $"{bytes} B"
+    };
+
+    private static string GetBarClass(double percent) => percent switch
+    {
+        >= 90 => "bar-danger",
+        >= 70 => "bar-warning",
+        _ => "bar-ok"
+    };
+}

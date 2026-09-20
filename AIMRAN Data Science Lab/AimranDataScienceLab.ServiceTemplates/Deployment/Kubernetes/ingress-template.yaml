@@ -1,0 +1,80 @@
+---
+# Kubernetes Ingress Template for AIMRAN Services
+# Exposes services with path-based routing and TLS termination
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aimran-ingress
+  namespace: aimran
+  labels:
+    app: api-gateway
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/auth-type: basic
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - api.aimran.example.com
+      secretName: aimran-tls
+  rules:
+    # Analyst Service Routes
+    - host: api.aimran.example.com
+      http:
+        paths:
+          - path: /analyst/
+            pathType: Prefix
+            backend:
+              service:
+                name: analyst-service
+                port:
+                  number: 5000
+
+          # Scientist Service Routes
+          - path: /scientist/
+            pathType: Prefix
+            backend:
+              service:
+                name: scientist-service
+                port:
+                  number: 5000
+
+          # Engineer Service Routes
+          - path: /engineer/
+            pathType: Prefix
+            backend:
+              service:
+                name: engineer-service
+                port:
+                  number: 5000
+
+          # AI Engineer Service Routes
+          - path: /ai-engineer/
+            pathType: Prefix
+            backend:
+              service:
+                name: ai-engineer-service
+                port:
+                  number: 5000
+
+          # Gateway Routes
+          - path: /gateway/
+            pathType: Prefix
+            backend:
+              service:
+                name: service-gateway
+                port:
+                  number: 5000
+
+          # Health and Status Routes
+          - path: /health/
+            pathType: Prefix
+            backend:
+              service:
+                name: monitoring-service
+                port:
+                  number: 5000

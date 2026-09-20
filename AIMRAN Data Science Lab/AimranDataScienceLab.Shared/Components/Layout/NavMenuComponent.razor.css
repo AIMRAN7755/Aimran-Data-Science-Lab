@@ -1,0 +1,290 @@
+/* ═════════════════════════════════════════════════════════════ */
+/* Navigation Menu Component - Professional Styling */
+/* ═════════════════════════════════════════════════════════════ */
+
+/* Note: Using ::part() and CSS custom properties instead of :deep()
+   for better scoped CSS compatibility with MudBlazor components */
+
+.nav-menu-enhanced {
+    padding: 12px 8px;
+    background: linear-gradient(180deg, var(--dark-bg-primary) 0%, var(--dark-bg-elevated) 100%);
+}
+
+/* ─ Section Headers ─ */
+.nav-section-header {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--dark-text-secondary);
+    opacity: 0.8;
+    border-left: 3px solid transparent;
+    transition: all var(--transition-standard);
+}
+
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+}
+
+.section-icon {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ─ Nav Groups ─ */
+.nav-group-enhanced {
+    padding: 8px 0;
+    margin: 4px 0;
+    border-radius: var(--radius-lg);
+}
+
+.nav-group-items-enhanced {
+    padding-left: 8px;
+    border-left: 2px solid var(--dark-border);
+    margin-left: 12px;
+}
+
+.nav-group-header-enhanced {
+    padding: 8px 12px;
+    font-weight: 500;
+    font-size: 0.85rem;
+    transition: all var(--transition-standard);
+    border-radius: 4px 0 0 4px;
+    margin-right: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+}
+
+.nav-group-header-enhanced:hover {
+    background-color: rgba(102, 126, 234, 0.08);
+    padding-left: 16px;
+    transform: translateX(2px);
+}
+
+.nav-group-header-enhanced.expanded {
+    background-color: rgba(102, 126, 234, 0.12);
+    color: var(--primary-main);
+}
+
+/* ─ Primary Navigation Links ─ */
+.nav-link-primary {
+    padding: 10px 12px;
+    margin: 4px 8px;
+    font-weight: 500;
+    font-size: 0.95rem;
+    border-radius: var(--radius-lg);
+    transition: all var(--transition-standard);
+    display: flex;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+    gap: var(--spacing-3);
+    color: var(--dark-text-primary);
+}
+
+.nav-link-primary::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: 3px;
+    background: linear-gradient(135deg, var(--primary-main), var(--primary-600));
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+
+.nav-link-primary:hover {
+    background-color: rgba(102, 126, 234, 0.1);
+    padding-left: 16px;
+    transform: translateX(2px);
+}
+
+.nav-link-primary:hover::before {
+    opacity: 1;
+}
+
+.nav-link-primary.active {
+    background-color: rgba(102, 126, 234, 0.15);
+    color: var(--primary-main);
+    font-weight: 600;
+}
+
+.nav-link-primary.active::before {
+    opacity: 1;
+}
+
+.nav-link-primary.active::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    width: 3px;
+    height: 100%;
+    background: linear-gradient(135deg, var(--primary-main), var(--primary-600));
+}
+
+/* ─ Sub Navigation Links ─ */
+.nav-link-sub {
+    padding: 8px 12px;
+    margin: 2px 8px;
+    font-weight: 400;
+    font-size: 0.9rem;
+    border-radius: var(--radius-lg);
+    transition: all var(--transition-standard);
+    display: flex;
+    align-items: center;
+    position: relative;
+    color: var(--dark-text-secondary);
+}
+
+.nav-link-sub::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 0;
+    height: 2px;
+    background: var(--primary-main);
+    transition: width var(--transition-standard);
+}
+
+.nav-link-sub:hover {
+    background-color: rgba(102, 126, 234, 0.08);
+    color: var(--dark-text-primary);
+    padding-left: 16px;
+    transform: translateX(2px);
+}
+
+.nav-link-sub:hover::after {
+    width: 3px;
+}
+
+.nav-link-sub.active {
+    background-color: rgba(102, 126, 234, 0.12);
+    color: var(--primary-main);
+    font-weight: 500;
+}
+
+.nav-link-sub.active::after {
+    width: 3px;
+}
+
+/* ─ Footer Links ─ */
+.nav-link-footer {
+    padding: 8px 12px;
+    margin-top: auto;
+    font-size: 0.85rem;
+    border-radius: var(--radius-lg);
+    transition: all var(--transition-standard);
+    display: flex;
+    align-items: center;
+    color: var(--dark-text-secondary);
+    border-top: 1px solid var(--dark-border);
+    margin-top: 12px;
+    padding-top: 12px;
+}
+
+.nav-link-footer:hover {
+    background-color: rgba(102, 126, 234, 0.08);
+    color: var(--primary-main);
+    transform: translateX(2px);
+}
+
+/* ─ Admin Section ─ */
+.nav-group-admin {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 2px solid var(--dark-border);
+}
+
+.nav-group-admin-header {
+    padding: 8px 12px;
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: var(--error-main);
+    opacity: 0.8;
+    letter-spacing: 0.5px;
+}
+
+/* ─ Menu Icons ─ */
+.nav-menu-icon {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: transform var(--transition-standard);
+}
+
+.nav-link-primary:hover .nav-menu-icon,
+.nav-link-sub:hover .nav-menu-icon {
+    transform: scale(1.1);
+}
+
+/* ─ Chips & Status ─ */
+.nav-chip {
+    margin-left: auto;
+    font-size: 0.7rem;
+}
+
+.nav-divider {
+    margin: 8px 0;
+    opacity: 0.5;
+}
+
+/* ─ Animations ─ */
+@keyframes navItemExpand {
+    from {
+        opacity: 0;
+        transform: translateX(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.nav-item-animated {
+    animation: navItemExpand 0.3s ease-out;
+}
+
+/* ─ Responsive ─ */
+@media (max-width: 768px) {
+    .nav-section-header {
+        padding: 8px 12px;
+        font-size: 0.7rem;
+    }
+
+    .nav-link-primary,
+    .nav-link-sub {
+        padding: 8px 10px;
+        font-size: 0.9rem;
+    }
+
+    .nav-menu-enhanced {
+        padding: 8px 4px;
+    }
+}
+
+/* ─ Accessibility ─ */
+@media (prefers-reduced-motion: reduce) {
+    .nav-link-primary,
+    .nav-link-sub,
+    .nav-group-header-enhanced,
+    .nav-menu-icon {
+        transition: none;
+    }
+}

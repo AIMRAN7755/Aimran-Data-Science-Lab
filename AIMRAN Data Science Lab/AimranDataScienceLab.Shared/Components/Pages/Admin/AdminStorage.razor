@@ -1,0 +1,113 @@
+@page "/admin/storage"
+@layout AdminLayout
+@inject IAdminService AdminService
+
+<PageTitle>Storage Management - AIMRAN Admin</PageTitle>
+
+<div class="admin-page">
+    <h1 class="admin-title">💾 Storage Management</h1>
+
+    <div class="action-bar">
+        <button class="btn btn-outline" @onclick="LoadAsync">🔄 Refresh</button>
+    </div>
+
+    @if (_quotas.Count == 0)
+    {
+        <div class="admin-empty">
+            <div class="admin-empty-icon">💾</div>
+            <p>No storage quotas configured. Quotas are auto-created when users are assigned.</p>
+        </div>
+    }
+    else
+    {
+        <div class="table-scroll">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Used</th>
+                        <th>Quota</th>
+                        <th>Usage</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var q in _quotas)
+                    {
+                        <tr>
+                            <td><strong>@(q.Username ?? q.UserId.ToString()[..8])</strong></td>
+                            <td>@FormatBytes(q.UsedStorageBytes)</td>
+                            <td>@FormatBytes(q.MaxStorageBytes)</td>
+                            <td style="min-width:180px">
+                                <div class="progress-bar" style="height:6px">
+                                    <div class="progress-fill @GetBarClass(q.UsagePercent)"
+                                         style="width:@Math.Min(q.UsagePercent,100)%"></div>
+                                </div>
+                                <span style="font-size:0.75rem;color:#888">@q.UsagePercent.ToString("F1")%</span>
+                            </td>
+                            <td>
+                                <button class="btn btn-xs btn-outline" @onclick="() => ShowEditQuota(q)">📝 Edit</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@* ── Edit Quota Modal ── *@
+@if (_showEdit && _editQuota is not null)
+{
+    <div class="admin-modal-overlay" @onclick="CloseModal">
+        <div class="admin-modal" @onclick:stopPropagation>
+            <h3>📝 Set Quota — @(_editQuota.Username ?? "User")</h3>
+            <div class="form-group">
+                <label>Max Storage (GB)</label>
+                <input class="form-input" type="number" @bind="_editGb" min="1" />
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-outline" @onclick="CloseModal">Cancel</button>
+                <button class="btn btn-primary" @onclick="SaveQuotaAsync">Save</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private IReadOnlyList<StorageQuota> _quotas = [];
+    private StorageQuota? _editQuota;
+    private bool _showEdit;
+    private int _editGb;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync() { _quotas = await AdminService.GetAllQuotasAsync(); }
+
+    private void ShowEditQuota(StorageQuota q)
+    {
+        _editQuota = q;
+        _editGb = (int)(q.MaxStorageBytes / 1_073_741_824);
+        _showEdit = true;
+    }
+
+    private async Task SaveQuotaAsync()
+    {
+        if (_editQuota is null) return;
+        await AdminService.SetQuotaAsync(_editQuota.UserId, (long)_editGb * 1_073_741_824);
+        CloseModal();
+        await LoadAsync();
+    }
+
+    private void CloseModal() { _showEdit = false; _editQuota = null; }
+
+    private static string FormatBytes(long bytes) => bytes switch
+    {
+        >= 1_099_511_627_776 => $"{bytes / 1_099_511_627_776.0:F1} TB",
+        >= 1_073_741_824 => $"{bytes / 1_073_741_824.0:F1} GB",
+        >= 1_048_576 => $"{bytes / 1_048_576.0:F1} MB",
+        _ => $"{bytes / 1024.0:F0} KB"
+    };
+
+    private static string GetBarClass(double p) => p switch { >= 90 => "bar-danger", >= 70 => "bar-warning", _ => "bar-ok" };
+}

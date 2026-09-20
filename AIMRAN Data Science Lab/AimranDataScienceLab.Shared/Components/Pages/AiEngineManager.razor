@@ -1,0 +1,583 @@
+@page "/ai-engine"
+@implements IDisposable
+@inject IGatewayManager Gateway
+@inject IModelService ModelService
+@inject IResourceMonitorService ResourceMonitor
+@inject Microsoft.Extensions.Options.IOptions<GatewayOptions> GatewayOpts
+
+<PageTitle>AI Engine Manager - DS-Workbench</PageTitle>
+
+<div class="page-container">
+    <header class="page-header">
+        <div class="header-content">
+            <h1>🧠 AI Engine Manager</h1>
+            <p>Manage the FastAPI AI Engine, monitor health, and browse registered models</p>
+        </div>
+        <div class="header-actions">
+            <button class="btn @(_engineRunning ? "btn-danger" : "btn-primary")"
+                    @onclick="ToggleEngine"
+                    disabled="@_isToggling">
+                @if (_isToggling)
+                {
+                    <span class="btn-spinner"></span>
+                }
+                @(_engineRunning ? "⏹️ Stop Engine" : "▶️ Start Engine")
+            </button>
+            <button class="btn btn-secondary" @onclick="RefreshHealthAsync">
+                🔄 Refresh
+            </button>
+        </div>
+    </header>
+
+    <!-- Status Banner -->
+    <div class="status-banner @(_pythonHealth?.IsHealthy == true ? "healthy" : "unhealthy")">
+        <div class="status-indicator">
+            <span class="status-dot @(_pythonHealth?.IsHealthy == true ? "green" : "red")"></span>
+            <span class="status-text">
+                @if (_pythonHealth is null)
+                {
+                    <text>Checking engine status...</text>
+                }
+                else if (_pythonHealth.IsHealthy)
+                {
+                    <text>Python AI Engine is running</text>
+                }
+                else
+                {
+                    <text>Python AI Engine is offline</text>
+                }
+            </span>
+        </div>
+        <div class="status-meta">
+            @if (_pythonHealth is not null)
+            {
+                @if (_pythonHealth.Version is not null)
+                {
+                    <span class="meta-chip">v@_pythonHealth.Version</span>
+                }
+                @if (_pythonHealth.ResponseTime.HasValue)
+                {
+                    <span class="meta-chip">@_pythonHealth.ResponseTime.Value.TotalMilliseconds.ToString("F0") ms</span>
+                }
+                <span class="meta-chip">Checked @_pythonHealth.CheckedAt.ToString("HH:mm:ss")</span>
+            }
+        </div>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="manager-grid">
+
+        <!-- Left Column -->
+        <div class="manager-column">
+
+            <!-- Environment Selector -->
+            <section class="panel">
+                <div class="panel-header">
+                    <h3>🐍 Python Environment</h3>
+                </div>
+                <div class="panel-body">
+                    <div class="form-group">
+                        <label>Environment Type</label>
+                        <select @bind="_selectedEnvType">
+                            <option value="system">System Python</option>
+                            <option value="venv">Virtual Environment (venv)</option>
+                            <option value="conda">Conda Environment</option>
+                            <option value="custom">Custom Path</option>
+                        </select>
+                    </div>
+
+                    @if (_selectedEnvType == "conda")
+                    {
+                        <div class="form-group">
+                            <label>Conda Environment Name</label>
+                            <select @bind="_selectedCondaEnv">
+                                <option value="base">base</option>
+                                <option value="ml-env">ml-env</option>
+                                <option value="pytorch">pytorch</option>
+                                <option value="tensorflow">tensorflow</option>
+                            </select>
+                        </div>
+                    }
+                    else if (_selectedEnvType == "venv")
+                    {
+                        <div class="form-group">
+                            <label>Venv Path</label>
+                            <input type="text" @bind="_venvPath" placeholder="./ai-engine/.venv" />
+                        </div>
+                    }
+                    else if (_selectedEnvType == "custom")
+                    {
+                        <div class="form-group">
+                            <label>Python Executable Path</label>
+                            <input type="text" @bind="_customPythonPath" placeholder="/usr/bin/python3.12" />
+                        </div>
+                    }
+
+                    <div class="env-status">
+                        <span class="env-dot @(_pythonHealth?.IsHealthy == true ? "active" : "")"></span>
+                        <small>@GetEnvDisplayName()</small>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Port Configuration -->
+            <section class="panel">
+                <div class="panel-header">
+                    <h3>🔌 Port Configuration</h3>
+                </div>
+                <div class="panel-body">
+                    <div class="form-group">
+                        <label>Python Engine Port</label>
+                        <div class="port-input-row">
+                            <input type="number" @bind="_pythonPort" min="1024" max="65535" />
+                            <span class="port-url">http://localhost:@_pythonPort</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Rust Engine Port</label>
+                        <div class="port-input-row">
+                            <input type="number" @bind="_rustPort" min="1024" max="65535" />
+                            <span class="port-url">http://localhost:@_rustPort</span>
+                        </div>
+                    </div>
+                    <div class="port-note">
+                        <small>⚠️ Changes take effect after engine restart.</small>
+                    </div>
+                </div>
+            </section>
+
+            <!-- API Health Check -->
+            <section class="panel">
+                <div class="panel-header">
+                    <h3>🩺 Health Check</h3>
+                    <button class="btn-icon-sm" title="Run health check" @onclick="RefreshHealthAsync">🔄</button>
+                </div>
+                <div class="panel-body">
+                    @if (_healthReport is null)
+                    {
+                        <div class="health-loading">
+                            <div class="spinner-sm"></div>
+                            <small>Checking engines...</small>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="health-list">
+                            <!-- Python Engine -->
+                            <div class="health-item @(_healthReport.PythonEngine.IsHealthy ? "healthy" : "unhealthy")">
+                                <div class="health-icon">
+                                    @(_healthReport.PythonEngine.IsHealthy ? "✅" : "❌")
+                                </div>
+                                <div class="health-info">
+                                    <strong>@_healthReport.PythonEngine.EngineName</strong>
+                                    @if (_healthReport.PythonEngine.IsHealthy)
+                                    {
+                                        <small>Responding in @_healthReport.PythonEngine.ResponseTime?.TotalMilliseconds.ToString("F0") ms</small>
+                                    }
+                                    else
+                                    {
+                                        <small class="error-text">@(_healthReport.PythonEngine.ErrorMessage ?? "Not reachable")</small>
+                                    }
+                                </div>
+                            </div>
+
+                            <!-- Rust Engine -->
+                            <div class="health-item @(_healthReport.RustEngine.IsHealthy ? "healthy" : "unhealthy")">
+                                <div class="health-icon">
+                                    @(_healthReport.RustEngine.IsHealthy ? "✅" : "❌")
+                                </div>
+                                <div class="health-info">
+                                    <strong>@_healthReport.RustEngine.EngineName</strong>
+                                    @if (_healthReport.RustEngine.IsHealthy)
+                                    {
+                                        <small>Responding in @_healthReport.RustEngine.ResponseTime?.TotalMilliseconds.ToString("F0") ms</small>
+                                    }
+                                    else
+                                    {
+                                        <small class="error-text">@(_healthReport.RustEngine.ErrorMessage ?? "Not reachable")</small>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="health-footer">
+                            <small>Last checked: @_healthReport.ReportedAt.ToString("HH:mm:ss")</small>
+                            @if (_autoRefresh)
+                            {
+                                <small class="auto-badge">Auto-refresh ON</small>
+                            }
+                        </div>
+
+                        <div class="form-group toggle-row">
+                            <label>Auto-refresh (every 10s)</label>
+                            <button class="toggle-btn @(_autoRefresh ? "on" : "")" @onclick="ToggleAutoRefresh">
+                                @(_autoRefresh ? "ON" : "OFF")
+                            </button>
+                        </div>
+                    }
+                </div>
+            </section>
+        </div>
+
+        <!-- Right Column -->
+        <div class="manager-column">
+
+            <!-- Resource Usage Graph -->
+            <section class="panel">
+                <div class="panel-header">
+                    <h3>📊 Resource Usage</h3>
+                    <button class="btn-icon-sm @(_isMonitoring ? "active" : "")"
+                            title="@(_isMonitoring ? "Stop monitoring" : "Start monitoring")"
+                            @onclick="ToggleMonitoring">
+                        @(_isMonitoring ? "⏹️" : "▶️")
+                    </button>
+                </div>
+                <div class="panel-body">
+                    <!-- CPU -->
+                    <div class="resource-row">
+                        <div class="resource-label">
+                            <span>🖥️ CPU</span>
+                            <span>@_metrics.Cpu.UsagePercent.ToString("F0")%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill cpu" style="width: @(_metrics.Cpu.UsagePercent)%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Memory -->
+                    <div class="resource-row">
+                        <div class="resource-label">
+                            <span>🧠 Memory</span>
+                            <span>@_metrics.Memory.UsagePercent.ToString("F0")%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill memory" style="width: @(_metrics.Memory.UsagePercent)%"></div>
+                        </div>
+                        <small class="resource-sub">@FormatBytes(_metrics.Memory.UsedBytes) / @FormatBytes(_metrics.Memory.TotalBytes)</small>
+                    </div>
+
+                    <!-- Disk -->
+                    <div class="resource-row">
+                        <div class="resource-label">
+                            <span>💾 Disk</span>
+                            <span>@_metrics.Disk.UsagePercent.ToString("F0")%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill disk" style="width: @(_metrics.Disk.UsagePercent)%"></div>
+                        </div>
+                        <small class="resource-sub">@FormatBytes(_metrics.Disk.FreeBytes) free</small>
+                    </div>
+
+                    <!-- GPU -->
+                    <div class="resource-row">
+                        <div class="resource-label">
+                            <span>🎮 GPU</span>
+                            @if (_metrics.Gpu is not null)
+                            {
+                                <span>@_metrics.Gpu.UsagePercent.ToString("F0")%</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">N/A</span>
+                            }
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill gpu" style="width: @(_metrics.Gpu?.UsagePercent ?? 0)%"></div>
+                        </div>
+                        @if (_metrics.Gpu is not null)
+                        {
+                            <small class="resource-sub">@_metrics.Gpu.Name · @FormatBytes(_metrics.Gpu.MemoryUsedBytes) VRAM · @_metrics.Gpu.TemperatureCelsius.ToString("F0")°C</small>
+                        }
+                        else
+                        {
+                            <small class="resource-sub">No GPU detected</small>
+                        }
+                    </div>
+
+                    <!-- Sparkline History -->
+                    @if (_cpuHistory.Count > 1)
+                    {
+                        <div class="sparkline-section">
+                            <h4>CPU History</h4>
+                            <div class="sparkline">
+                                @foreach (var val in _cpuHistory.TakeLast(30))
+                                {
+                                    <div class="spark-bar" style="height: @val%"
+                                         title="@val.ToString("F1")%"></div>
+                                }
+                            </div>
+                            <small class="sparkline-label">Last @Math.Min(_cpuHistory.Count, 30) samples</small>
+                        </div>
+                    }
+                </div>
+            </section>
+
+            <!-- Model Registry -->
+            <section class="panel">
+                <div class="panel-header">
+                    <h3>🤖 Model Registry</h3>
+                    <span class="badge">@_models.Count</span>
+                </div>
+                <div class="panel-body">
+                    @if (_isLoadingModels)
+                    {
+                        <div class="health-loading">
+                            <div class="spinner-sm"></div>
+                            <small>Loading models...</small>
+                        </div>
+                    }
+                    else if (!_models.Any())
+                    {
+                        <div class="empty-mini">
+                            <p>No models registered yet.</p>
+                            <a href="models" class="btn btn-sm btn-primary">Go to Model Lab</a>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="model-registry-list">
+                            @foreach (var model in _models.OrderByDescending(m => m.CreatedAt))
+                            {
+                                <div class="registry-item">
+                                    <div class="registry-main">
+                                        <div class="registry-name">
+                                            <strong>@model.Name</strong>
+                                            <span class="version-chip">v@model.Version</span>
+                                        </div>
+                                        <div class="registry-meta">
+                                            <span>@model.Algorithm</span>
+                                            <span>·</span>
+                                            <span>@model.Framework</span>
+                                            <span>·</span>
+                                            <span>@FormatBytes(model.SizeBytes)</span>
+                                        </div>
+                                    </div>
+                                    <div class="registry-status">
+                                        <span class="status-chip @model.Status.ToString().ToLower()">
+                                            @GetModelStatusIcon(model.Status) @model.Status
+                                        </span>
+                                        @if (model.IsDeployed)
+                                        {
+                                            <span class="deployed-chip">🌐 Deployed</span>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                        <div class="registry-footer">
+                            <a href="models" class="link-action">View all in Model Lab →</a>
+                        </div>
+                    }
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+
+@code {
+    // Health state
+    private EngineHealthStatus? _pythonHealth;
+    private GatewayHealthReport? _healthReport;
+    private bool _engineRunning;
+    private bool _isToggling;
+    private bool _autoRefresh;
+    private CancellationTokenSource? _autoRefreshCts;
+
+    // Environment
+    private string _selectedEnvType = "system";
+    private string _selectedCondaEnv = "base";
+    private string _venvPath = "./ai-engine/.venv";
+    private string _customPythonPath = "";
+
+    // Port config
+    private int _pythonPort;
+    private int _rustPort;
+
+    // Models
+    private List<MlModel> _models = [];
+    private bool _isLoadingModels = true;
+
+    // Resource monitoring
+    private ResourceMetrics _metrics = new();
+    private List<double> _cpuHistory = [];
+    private bool _isMonitoring;
+    private CancellationTokenSource? _monitorCts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var opts = GatewayOpts.Value;
+        _pythonPort = new Uri(opts.PythonEngine.BaseUrl).Port;
+        _rustPort = new Uri(opts.RustEngine.BaseUrl).Port;
+
+        var healthTask = RefreshHealthAsync();
+        var modelsTask = LoadModelsAsync();
+        var metricsTask = ResourceMonitor.GetCurrentMetricsAsync();
+
+        await Task.WhenAll(healthTask, modelsTask, metricsTask);
+
+        _metrics = await metricsTask;
+        _cpuHistory.Add(_metrics.Cpu.UsagePercent);
+
+        // Auto-start resource monitoring
+        _ = StartMonitoringAsync();
+    }
+
+    private async Task RefreshHealthAsync()
+    {
+        _healthReport = await Gateway.CheckHealthAsync();
+        _pythonHealth = _healthReport.PythonEngine;
+        _engineRunning = _pythonHealth.IsHealthy;
+    }
+
+    private async Task LoadModelsAsync()
+    {
+        _isLoadingModels = true;
+        _models = (await ModelService.GetAllAsync()).ToList();
+        _isLoadingModels = false;
+    }
+
+    private async Task ToggleEngine()
+    {
+        _isToggling = true;
+
+        try
+        {
+            if (_engineRunning)
+            {
+                await Gateway.StopEnginesAsync();
+                _engineRunning = false;
+            }
+            else
+            {
+                await Gateway.StartEnginesAsync();
+
+                // Wait briefly, then check health
+                await Task.Delay(1500);
+                await RefreshHealthAsync();
+            }
+        }
+        finally
+        {
+            _isToggling = false;
+        }
+    }
+
+    // Auto-refresh health
+    private void ToggleAutoRefresh()
+    {
+        if (_autoRefresh)
+        {
+            _autoRefresh = false;
+            _autoRefreshCts?.Cancel();
+            _autoRefreshCts?.Dispose();
+            _autoRefreshCts = null;
+        }
+        else
+        {
+            _autoRefresh = true;
+            _autoRefreshCts = new CancellationTokenSource();
+            _ = RunAutoRefreshAsync(_autoRefreshCts.Token);
+        }
+    }
+
+    private async Task RunAutoRefreshAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken);
+                await RefreshHealthAsync();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected on cancel
+        }
+    }
+
+    // Resource monitoring
+    private async Task ToggleMonitoring()
+    {
+        if (_isMonitoring)
+        {
+            StopMonitoringInternal();
+        }
+        else
+        {
+            await StartMonitoringAsync();
+        }
+    }
+
+    private async Task StartMonitoringAsync()
+    {
+        if (_isMonitoring) return;
+
+        _isMonitoring = true;
+        _monitorCts = new CancellationTokenSource();
+
+        try
+        {
+            await foreach (var metrics in ResourceMonitor.StreamMetricsAsync(TimeSpan.FromSeconds(2), _monitorCts.Token))
+            {
+                _metrics = metrics;
+                _cpuHistory.Add(metrics.Cpu.UsagePercent);
+
+                if (_cpuHistory.Count > 60)
+                    _cpuHistory.RemoveAt(0);
+
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected on stop
+        }
+    }
+
+    private void StopMonitoringInternal()
+    {
+        _isMonitoring = false;
+        _monitorCts?.Cancel();
+        _monitorCts?.Dispose();
+        _monitorCts = null;
+    }
+
+    public void Dispose()
+    {
+        StopMonitoringInternal();
+        _autoRefreshCts?.Cancel();
+        _autoRefreshCts?.Dispose();
+    }
+
+    // Display helpers
+    private string GetEnvDisplayName() => _selectedEnvType switch
+    {
+        "system" => "System Python (default)",
+        "venv" => $"venv: {_venvPath}",
+        "conda" => $"Conda: {_selectedCondaEnv}",
+        "custom" => string.IsNullOrEmpty(_customPythonPath) ? "Custom (not set)" : _customPythonPath,
+        _ => _selectedEnvType
+    };
+
+    private static string GetModelStatusIcon(ModelStatus status) => status switch
+    {
+        ModelStatus.Draft => "📝",
+        ModelStatus.Training => "🔄",
+        ModelStatus.Trained => "✅",
+        ModelStatus.Validated => "🔍",
+        ModelStatus.Registered => "📋",
+        ModelStatus.Deployed => "🚀",
+        ModelStatus.Archived => "📦",
+        _ => "❓"
+    };
+
+    private static string FormatBytes(long bytes) => bytes switch
+    {
+        < 1024 => $"{bytes} B",
+        < 1024 * 1024 => $"{bytes / 1024.0:F1} KB",
+        < 1024 * 1024 * 1024 => $"{bytes / (1024.0 * 1024):F1} MB",
+        _ => $"{bytes / (1024.0 * 1024 * 1024):F2} GB"
+    };
+}

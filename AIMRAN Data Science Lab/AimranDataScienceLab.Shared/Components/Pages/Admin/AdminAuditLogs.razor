@@ -1,0 +1,129 @@
+@page "/admin/audit"
+@layout AdminLayout
+@inject IAuditService AuditService
+@inject IAdminService AdminService
+
+<PageTitle>Audit Logs - AIMRAN Admin</PageTitle>
+
+<div class="admin-page">
+    <h1 class="admin-title">📋 Audit Logs</h1>
+
+    <div class="action-bar">
+        <button class="btn btn-sm btn-outline filter-picker-trigger"
+                @onclick="OpenFilterPicker">
+            Filter: @CurrentFilterLabel
+        </button>
+        <span style="color:#666;font-size:0.82rem;margin-left:auto">@_logs.Count entries</span>
+    </div>
+
+    @if (_showFilterPicker)
+    {
+        <div class="picker-backdrop" @onclick="CloseFilterPicker">
+            <div class="picker-modal" @onclick:stopPropagation>
+                <div class="picker-header">Select audit filter</div>
+                @foreach (var option in _filterOptions)
+                {
+                    <button class="picker-option @(option.Value == _filter ? "active" : null)"
+                            @onclick="() => SelectFilterAsync(option.Value)">
+                        @option.Label
+                    </button>
+                }
+                <button class="btn btn-sm btn-outline picker-cancel" @onclick="CloseFilterPicker">Cancel</button>
+            </div>
+        </div>
+    }
+
+    @if (_logs.Count == 0)
+    {
+        <div class="admin-empty">
+            <div class="admin-empty-icon">📋</div>
+            <p>No audit log entries for this filter.</p>
+        </div>
+    }
+    else
+    {
+        <div class="table-scroll">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Action</th>
+                        <th>User</th>
+                        <th>Detail</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var log in _logs)
+                    {
+                        <tr class="@RowClass(log.Action)">
+                            <td style="white-space:nowrap">@log.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                            <td><span class="action-tag @ActionClass(log.Action)">@log.Action</span></td>
+                            <td style="font-family:monospace;font-size:0.78rem;color:#888">
+                                @(log.UserId?.ToString()[..8] ?? "system")
+                            </td>
+                            <td style="max-width:400px;overflow:hidden;text-overflow:ellipsis">@(log.Detail ?? "—")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<AuditLogEntry> _logs = [];
+    private string _filter = "all";
+    private bool _showFilterPicker;
+
+    private static readonly IReadOnlyList<(string Value, string Label)> _filterOptions =
+    [
+        ("all", "All"),
+        ("login", "Login"),
+        ("admin", "Admin Actions"),
+        ("exec", "Execution"),
+        ("register", "Registrations")
+    ];
+
+    private string CurrentFilterLabel => _filterOptions.FirstOrDefault(x => x.Value == _filter).Label ?? "All";
+
+    protected override async Task OnInitializedAsync() => await FilterAsync("all");
+
+    private async Task FilterAsync(string filter)
+    {
+        _filter = filter;
+        _logs = filter switch
+        {
+            "login" => await AuditService.GetByActionAsync("LoginSuccess", 200),
+            "admin" => await AuditService.GetByActionAsync("AdminCreateUser", 200),
+            "exec" => await AuditService.GetByActionAsync("ExecutionStart", 200),
+            "register" => await AuditService.GetByActionAsync("Register", 200),
+            _ => await AuditService.GetRecentAsync(200)
+        };
+    }
+
+    private void OpenFilterPicker() => _showFilterPicker = true;
+
+    private void CloseFilterPicker() => _showFilterPicker = false;
+
+    private async Task SelectFilterAsync(string filter)
+    {
+        await FilterAsync(filter);
+        CloseFilterPicker();
+    }
+
+    private static string RowClass(string action) => action switch
+    {
+        "LoginFailed" or "LoginBlocked" or "ExecutionBlocked" => "row-warn",
+        "AdminDeleteUser" => "row-danger",
+        _ => ""
+    };
+
+    private static string ActionClass(string action) => action switch
+    {
+        "LoginSuccess" or "Register" => "tag-success",
+        "LoginFailed" or "LoginBlocked" => "tag-warn",
+        "AdminDeleteUser" or "ExecutionBlocked" => "tag-danger",
+        _ when action.StartsWith("Admin") => "tag-admin",
+        _ => "tag-default"
+    };
+}

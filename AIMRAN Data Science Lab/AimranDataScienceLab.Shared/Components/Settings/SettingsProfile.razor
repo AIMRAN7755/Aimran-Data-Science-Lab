@@ -1,0 +1,81 @@
+<MudStack Spacing="3">
+    <MudText Typo="TypoStyle.H5" Class="font-weight-bold">User Profile</MudText>
+    <MudText Typo="TypoStyle.Body2" Style="color: var(--mud-palette-text-secondary);">Manage your personal information</MudText>
+
+    <MudPaper Elevation="0" Class="pa-4" Style="background-color: var(--mud-palette-background-grey);">
+        <MudStack Spacing="3">
+            <!-- Avatar Section -->
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                <MudAvatar Size="Size.Large" Color="MudBlazor.Color.Primary">UN</MudAvatar>
+                <MudStack>
+                    <MudText Typo="TypoStyle.Body1" Class="font-weight-bold">User Name</MudText>
+                    <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="ChangeAvatar">Change Avatar</MudButton>
+                </MudStack>
+            </MudStack>
+
+            <MudDivider />
+
+            <!-- Profile Fields -->
+            <MudStack Spacing="2">
+                <MudTextField Label="Full Name" Value="@fullName" ValueChanged="@((string val) => fullName = val)" Variant="Variant.Outlined" />
+                <MudTextField Label="Email" Value="@email" ValueChanged="@((string val) => email = val)" Variant="Variant.Outlined" />
+                <MudTextField Label="Phone" Value="@phone" ValueChanged="@((string val) => phone = val)" Variant="Variant.Outlined" />
+                <MudTextField Label="Department" Value="@department" ValueChanged="@((string val) => department = val)" Variant="Variant.Outlined" />
+                <MudTextField Label="Bio" Value="@bio" ValueChanged="@((string val) => bio = val)" Variant="Variant.Outlined" Lines="3" />
+            </MudStack>
+
+            <MudDivider />
+
+            <!-- Action Buttons -->
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Filled" Color="MudBlazor.Color.Primary" OnClick="SaveProfile">Save Changes</MudButton>
+                <MudButton Variant="Variant.Outlined" OnClick="ResetProfile">Cancel</MudButton>
+            </MudStack>
+        </MudStack>
+    </MudPaper>
+
+    <!-- Password Section -->
+    <MudExpansionPanel Text="Password Settings" Icon="@Icons.Material.Filled.VpnKey">
+        <MudStack Spacing="2">
+            <MudTextField Label="Current Password" InputType="InputType.Password" Variant="Variant.Outlined" @bind-Value:get="currentPassword" @bind-Value:set="@((s) => currentPassword = s)" />
+            <MudTextField Label="New Password" InputType="InputType.Password" Variant="Variant.Outlined" @bind-Value:get="newPassword" @bind-Value:set="@((s) => newPassword = s)" />
+            <MudTextField Label="Confirm Password" InputType="InputType.Password" Variant="Variant.Outlined" @bind-Value:get="confirmPassword" @bind-Value:set="@((s) => confirmPassword = s)" />
+            <MudButton Variant="Variant.Filled" Color="MudBlazor.Color.Primary" OnClick="ChangePassword">Update Password</MudButton>
+        </MudStack>
+    </MudExpansionPanel>
+</MudStack>
+
+@code {
+    private string fullName = "User Name";
+    private string email = "user@example.com";
+    private string phone = "+1 (555) 000-0000";
+    private string department = "Data Science";
+    private string bio = "ML Engineer and Data Scientist";
+    private string currentPassword = "";
+    private string newPassword = "";
+    private string confirmPassword = "";
+
+    private async Task SaveProfile()
+    {
+        // TODO: Implement profile save logic
+        await Task.CompletedTask;
+    }
+
+    private async Task ResetProfile()
+    {
+        // TODO: Reset profile to last saved state
+        await Task.CompletedTask;
+    }
+
+    private async Task ChangeAvatar()
+    {
+        // TODO: Implement avatar change logic
+        await Task.CompletedTask;
+    }
+
+    private async Task ChangePassword()
+    {
+        // TODO: Implement password change logic
+        await Task.CompletedTask;
+    }
+}

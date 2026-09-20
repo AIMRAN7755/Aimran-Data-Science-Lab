@@ -1,0 +1,88 @@
+@using AIMRAN_Data_Science_Lab.Themes
+@using MudBlazor
+
+@* 
+    ThemeProvider Component
+    Provides theme-aware styling and constants to child components
+    Usage: Wrap components or pages with <ThemeProvider>
+*@
+
+<CascadingValue Value="this">
+    @ChildContent
+</CascadingValue>
+
+@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>
+    /// Gets a spacing value in pixels
+    /// </summary>
+    public int GetSpacing(string scale = "default") => scale switch
+    {
+        "xs" => Spacing.XSmall,
+        "sm" => Spacing.Small,
+        "default" => Spacing.Default,
+        "md" => Spacing.Medium,
+        "lg" => Spacing.Large,
+        "xl" => Spacing.XLarge,
+        "2xl" => Spacing.XXLarge,
+        _ => Spacing.Default
+    };
+
+    /// <summary>
+    /// Gets a shadow CSS value
+    /// </summary>
+    public string GetShadow(string elevation = "default") => elevation switch
+    {
+        "subtle" => Shadows.Subtle,
+        "default" => Shadows.Default,
+        "raised" => Shadows.Raised,
+        "floating" => Shadows.Floating,
+        "modal" => Shadows.Modal,
+        _ => Shadows.Default
+    };
+
+    /// <summary>
+    /// Gets a transition CSS value
+    /// </summary>
+    public string GetTransition(string type = "standard") => type switch
+    {
+        "short" => Transitions.ShortTransition,
+        "standard" => Transitions.StandardTransition,
+        "long" => Transitions.LongTransition,
+        _ => Transitions.StandardTransition
+    };
+
+    /// <summary>
+    /// Gets a z-index value
+    /// </summary>
+    public int GetZIndex(string layer = "default") => layer switch
+    {
+        "dropdown" => AIMRAN_Data_Science_Lab.Themes.ZIndex.Dropdown,
+        "sticky" => AIMRAN_Data_Science_Lab.Themes.ZIndex.Sticky,
+        "fixed" => AIMRAN_Data_Science_Lab.Themes.ZIndex.Fixed,
+        "modal" => AIMRAN_Data_Science_Lab.Themes.ZIndex.Modal,
+        "toast" => AIMRAN_Data_Science_Lab.Themes.ZIndex.Toast,
+        "tooltip" => AIMRAN_Data_Science_Lab.Themes.ZIndex.Tooltip,
+        _ => AIMRAN_Data_Science_Lab.Themes.ZIndex.Default
+    };
+
+    /// <summary>
+    /// Generates a focus ring style
+    /// </summary>
+    public string GetFocusStyle(string color = "primary") =>
+        ThemeExtensions.GetFocusStyle(color);
+
+    /// <summary>
+    /// Generates a hover transform style
+    /// </summary>
+    public string GetHoverStyle(double scale = 1.05) =>
+        ThemeExtensions.GetHoverTransform(scale);
+
+    /// <summary>
+    /// Generates a disabled state style
+    /// </summary>
+    public string GetDisabledStyle() =>
+        ThemeExtensions.GetDisabledStyle();
+}

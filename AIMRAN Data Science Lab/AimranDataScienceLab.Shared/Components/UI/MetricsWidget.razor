@@ -1,0 +1,95 @@
+@namespace AimranDataScienceLab.Shared.Components.UI
+@implements IAsyncDisposable
+
+<div class="metrics-widget @($"widget-{Layout}") @($"size-{Size}") @AdditionalClass">
+    @if (!string.IsNullOrEmpty(Title))
+    {
+        <div class="widget-header">
+            <h4 class="widget-title">@Title</h4>
+            @if (HeaderAction != null)
+            {
+                <div class="widget-action">
+                    @HeaderAction
+                </div>
+            }
+        </div>
+    }
+
+    <div class="widget-body">
+        @if (ShowProgress && ProgressPercent >= 0)
+        {
+            <div class="metric-progress">
+                <div class="progress-label">
+                    <span class="progress-text">@Label</span>
+                    <span class="progress-value">@ProgressPercent.ToString("F0")%</span>
+                </div>
+                <div class="progress-bar-wrapper">
+                    <div class="progress-bar" style="--progress: @(ProgressPercent)%; --color: @ProgressColor;">
+                        <div class="progress-fill"></div>
+                    </div>
+                </div>
+            </div>
+        }
+        else if (ShowRing && RingPercent >= 0)
+        {
+            <div class="metric-ring">
+                <div class="ring-chart" style="--ring-pct: @(RingPercent); --ring-color: @RingColor;">
+                    <span class="ring-text">@RingPercent.ToString("F0")%</span>
+                </div>
+                <span class="ring-label">@Label</span>
+            </div>
+        }
+        else if (ShowStatistic)
+        {
+            <div class="metric-statistic">
+                <div class="stat-value">@Value</div>
+                <div class="stat-label">@Label</div>
+                @if (!string.IsNullOrEmpty(Subtitle))
+                {
+                    <div class="stat-subtitle">@Subtitle</div>
+                }
+            </div>
+        }
+        else if (ChildContent != null)
+        {
+            @ChildContent
+        }
+    </div>
+
+    @if (ShowFooter && FooterContent != null)
+    {
+        <div class="widget-footer">
+            @FooterContent
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public string Layout { get; set; } = "vertical"; // vertical, horizontal, grid
+    [Parameter] public string Size { get; set; } = "medium"; // small, medium, large
+    [Parameter] public string? AdditionalClass { get; set; }
+
+    [Parameter] public bool ShowProgress { get; set; } = false;
+    [Parameter] public double ProgressPercent { get; set; } = -1;
+    [Parameter] public string ProgressColor { get; set; } = "#667eea";
+
+    [Parameter] public bool ShowRing { get; set; } = false;
+    [Parameter] public double RingPercent { get; set; } = -1;
+    [Parameter] public string RingColor { get; set; } = "#667eea";
+
+    [Parameter] public bool ShowStatistic { get; set; } = false;
+
+    [Parameter] public bool ShowFooter { get; set; } = false;
+    [Parameter] public RenderFragment? HeaderAction { get; set; }
+    [Parameter] public RenderFragment? FooterContent { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    async ValueTask IAsyncDisposable.DisposeAsync()
+    {
+        await Task.CompletedTask;
+    }
+}

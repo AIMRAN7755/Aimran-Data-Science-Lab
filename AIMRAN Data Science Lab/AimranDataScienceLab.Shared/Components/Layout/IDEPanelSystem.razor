@@ -1,0 +1,93 @@
+<div class="ide-layout">
+    <div class="ide-container" style="display: grid; grid-template-columns: @GridTemplateColumns; gap: 8px; height: 100%; width: 100%;">
+        @foreach (var panel in panels)
+        {
+            if (panel.IsVisible)
+            {
+                <div class="ide-panel" 
+                     data-panel-id="@panel.Id"
+                     style="grid-column: span @panel.GridColumns; grid-row: span @panel.GridRows; position: relative; overflow: hidden; border-radius: 4px; border: 1px solid var(--mud-palette-lines-default);">
+
+                    <!-- Panel Header -->
+                    <div class="panel-header" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background-color: var(--mud-palette-surface); border-bottom: 1px solid var(--mud-palette-lines-default);">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            @if (!string.IsNullOrEmpty(panel.Icon))
+                            {
+                                <MudIcon Icon="@panel.Icon" Size="Size.Small" />
+                            }
+                            <MudText Typo="TypoStyle.Body2" Class="font-weight-bold">@panel.Title</MudText>
+                        </div>
+                        <div style="display: flex; gap: 4px;">
+                            @if (panel.Collapsible)
+                            {
+                                <MudIconButton Icon="@(panel.Collapsed ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ExpandLess)" 
+                                              Size="Size.Small" 
+                                              OnClick="@(() => TogglePanel(panel.Id))" />
+                            }
+                            <MudIconButton Icon="@Icons.Material.Filled.Close" 
+                                          Size="Size.Small" 
+                                          OnClick="@(() => HidePanel(panel.Id))" />
+                        </div>
+                    </div>
+
+                    <!-- Panel Content -->
+                    @if (!panel.Collapsed)
+                    {
+                        <div class="panel-content" style="padding: 12px; overflow: auto; height: calc(100% - 40px);">
+                            @panel.Content
+                        </div>
+                    }
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public List<IDEPanel>? Panels { get; set; }
+
+    [Parameter]
+    public string GridTemplateColumns { get; set; } = "1fr 1fr";
+
+    private List<IDEPanel> panels = new();
+
+    protected override void OnInitialized()
+    {
+        if (Panels != null)
+        {
+            panels = Panels.ToList();
+        }
+    }
+
+    private void TogglePanel(string panelId)
+    {
+        var panel = panels.FirstOrDefault(p => p.Id == panelId);
+        if (panel != null)
+        {
+            panel.Collapsed = !panel.Collapsed;
+        }
+    }
+
+    private void HidePanel(string panelId)
+    {
+        var panel = panels.FirstOrDefault(p => p.Id == panelId);
+        if (panel != null)
+        {
+            panel.IsVisible = false;
+        }
+    }
+
+    public class IDEPanel
+    {
+        public string Id { get; set; } = "";
+        public string Title { get; set; } = "";
+        public string? Icon { get; set; }
+        public RenderFragment? Content { get; set; }
+        public bool IsVisible { get; set; } = true;
+        public bool Collapsed { get; set; } = false;
+        public bool Collapsible { get; set; } = true;
+        public int GridColumns { get; set; } = 1;
+        public int GridRows { get; set; } = 1;
+    }
+}

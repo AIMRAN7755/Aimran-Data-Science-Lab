@@ -1,0 +1,2 @@
+.action-cell { display: flex; gap: 4px; flex-wrap: wrap; }
+.modal-error { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3); color: #f87171; padding: 0.5rem 0.75rem; border-radius: 6px; margin-bottom: 0.5rem; font-size: 0.82rem; }

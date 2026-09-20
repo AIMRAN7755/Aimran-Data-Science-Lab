@@ -1,0 +1,146 @@
+<MudStack Spacing="3">
+    <MudText Typo="Typo.H5" Class="font-weight-bold">Notifications</MudText>
+    <MudText Typo="Typo.Body2" Style="color: var(--mud-palette-text-secondary);">Manage how and when you receive notifications</MudText>
+
+    <MudPaper Elevation="0" Class="pa-4" Style="background-color: var(--mud-palette-background-grey);">
+        <MudStack Spacing="3">
+            <!-- Notification Channels -->
+            <MudStack>
+                <MudText Typo="Typo.Subtitle2" Class="font-weight-bold">Notification Channels</MudText>
+
+                <MudCheckBox @bind-Value="emailNotifications" Label="Email Notifications" />
+                <MudCheckBox @bind-Value="inAppNotifications" Label="In-App Notifications" />
+                <MudCheckBox @bind-Value="pushNotifications" Label="Push Notifications" />
+                <MudCheckBox @bind-Value="smsNotifications" Label="SMS Notifications" />
+            </MudStack>
+
+            <MudDivider />
+
+            <!-- Notification Types -->
+            <MudStack>
+                <MudText Typo="Typo.Subtitle2" Class="font-weight-bold">Notification Types</MudText>
+
+                @foreach (var notifType in notificationTypes)
+                {
+                    <MudStack Class="pl-4">
+                        <MudCheckBox @bind-Value="notifType.Enabled" Label="@notifType.Name" />
+                        @if (notifType.Enabled)
+                        {
+                            <MudStack Class="pl-4">
+                                <MudCheckBox @bind-Value="notifType.Email" Label="Email" />
+                                <MudCheckBox @bind-Value="notifType.InApp" Label="In-App" />
+                                <MudCheckBox @bind-Value="notifType.Push" Label="Push" />
+                            </MudStack>
+                        }
+                    </MudStack>
+                }
+            </MudStack>
+
+            <MudDivider />
+
+            <!-- Digest Settings -->
+            <MudStack>
+                <MudText Typo="Typo.Subtitle2" Class="font-weight-bold">Digest Settings</MudText>
+
+                <MudSelect T="string" Label="Email Digest Frequency" Value="@digestFrequency" ValueChanged="@((string val) => digestFrequency = val)" Variant="Variant.Outlined">
+                    <MudSelectItem Value="@("instant")">Instant</MudSelectItem>
+                    <MudSelectItem Value="@("daily")">Daily</MudSelectItem>
+                    <MudSelectItem Value="@("weekly")">Weekly</MudSelectItem>
+                    <MudSelectItem Value="@("monthly")">Monthly</MudSelectItem>
+                </MudSelect>
+            </MudStack>
+
+            <MudDivider />
+
+            <!-- Quiet Hours -->
+            <MudStack>
+                <MudText Typo="Typo.Subtitle2" Class="font-weight-bold">Quiet Hours</MudText>
+
+                <MudCheckBox @bind-Value="enableQuietHours" Label="Enable quiet hours" />
+
+                @if (enableQuietHours)
+                {
+                    <MudStack Class="pl-4">
+                        <MudTimePicker Label="Start Time" @bind-Time="@quietHoursStart" Variant="Variant.Outlined" />
+                        <MudTimePicker Label="End Time" @bind-Time="@quietHoursEnd" Variant="Variant.Outlined" />
+                        <MudCheckBox @bind-Value="quietHoursIncludeWeekends" Label="Apply to weekends" />
+                    </MudStack>
+                }
+            </MudStack>
+
+            <MudDivider />
+
+            <!-- Do Not Disturb -->
+            <MudStack>
+                <MudText Typo="Typo.Subtitle2" Class="font-weight-bold">Do Not Disturb</MudText>
+
+                <MudCheckBox @bind-Value="dndEnabled" Label="Enable Do Not Disturb" />
+
+                @if (dndEnabled)
+                {
+                    <MudStack Class="pl-4">
+                        <MudText Typo="Typo.Body2" Style="color: var(--mud-palette-text-secondary);">Allow notifications from:</MudText>
+                        <MudCheckBox @bind-Value="allowUrgent" Label="Urgent/Priority notifications" />
+                        <MudCheckBox @bind-Value="allowStarred" Label="Starred contacts" />
+                        <MudCheckBox @bind-Value="allowTeam" Label="Team members" />
+                    </MudStack>
+                }
+            </MudStack>
+
+            <MudDivider />
+
+            <!-- Action Buttons -->
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Filled" Color="MudBlazor.Color.Primary" OnClick="SaveNotifications">Save Preferences</MudButton>
+                <MudButton Variant="Variant.Outlined" OnClick="ResetNotifications">Cancel</MudButton>
+            </MudStack>
+        </MudStack>
+    </MudPaper>
+</MudStack>
+
+@code {
+    private class NotificationType
+    {
+        public string Name { get; set; } = "";
+        public bool Enabled { get; set; }
+        public bool Email { get; set; }
+        public bool InApp { get; set; }
+        public bool Push { get; set; }
+    }
+
+    private bool emailNotifications = true;
+    private bool inAppNotifications = true;
+    private bool pushNotifications = true;
+    private bool smsNotifications = false;
+    private string digestFrequency = "daily";
+    private bool enableQuietHours = true;
+    private TimeSpan? quietHoursStart = new TimeSpan(22, 0, 0);
+    private TimeSpan? quietHoursEnd = new TimeSpan(8, 0, 0);
+    private bool quietHoursIncludeWeekends = false;
+    private bool dndEnabled = false;
+    private bool allowUrgent = true;
+    private bool allowStarred = true;
+    private bool allowTeam = true;
+
+    private List<NotificationType> notificationTypes = new()
+    {
+        new NotificationType { Name = "Project Updates", Enabled = true, Email = true, InApp = true, Push = false },
+        new NotificationType { Name = "Collaboration Messages", Enabled = true, Email = true, InApp = true, Push = true },
+        new NotificationType { Name = "Experiment Results", Enabled = true, Email = true, InApp = true, Push = true },
+        new NotificationType { Name = "System Alerts", Enabled = true, Email = true, InApp = true, Push = false },
+        new NotificationType { Name = "Model Deployment", Enabled = true, Email = true, InApp = true, Push = true },
+        new NotificationType { Name = "Pipeline Completion", Enabled = true, Email = false, InApp = true, Push = true }
+    };
+
+    private async Task SaveNotifications()
+    {
+        // TODO: Implement save notifications logic
+        await Task.CompletedTask;
+    }
+
+    private async Task ResetNotifications()
+    {
+        // TODO: Reset to saved preferences
+        await Task.CompletedTask;
+    }
+}

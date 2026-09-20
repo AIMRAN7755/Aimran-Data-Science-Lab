@@ -1,0 +1,55 @@
+---
+# Pod Disruption Budget (PDB) Template for AIMRAN Services
+# Ensures service availability during cluster maintenance
+
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: SERVICE_NAME-pdb
+  namespace: aimran
+  labels:
+    app: SERVICE_LABEL
+spec:
+  minAvailable: MIN_AVAILABLE
+  selector:
+    matchLabels:
+      app: SERVICE_LABEL
+  unhealthyPodEvictionPolicy: AlwaysAllow
+
+---
+# Strict PDB for Critical Infrastructure Services
+# Used for Registry, Gateway, IPC Broker, Monitoring
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: SERVICE_NAME-critical-pdb
+  namespace: aimran
+  labels:
+    app: SERVICE_LABEL
+    criticality: high
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: SERVICE_LABEL
+      criticality: high
+  unhealthyPodEvictionPolicy: IfHealthyBudget
+
+---
+# Lenient PDB for Stateless Services
+# Used for Analyst, Scientist, Engineer, AI Engineer services
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: SERVICE_NAME-stateless-pdb
+  namespace: aimran
+  labels:
+    app: SERVICE_LABEL
+    service-type: stateless
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: SERVICE_LABEL
+      service-type: stateless
+  unhealthyPodEvictionPolicy: AlwaysAllow

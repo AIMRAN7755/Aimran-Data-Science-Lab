@@ -1,0 +1,319 @@
+@page "/data-viewer"
+@inject IDatasetService DatasetService
+@inject IDataProfilingService ProfilingService
+
+<PageTitle>Data Viewer - AIMRAN Data Science Lab</PageTitle>
+
+<div class="viewer-page">
+    <header class="viewer-toolbar">
+        <div class="toolbar-left">
+            <h2>🔍 Data Viewer</h2>
+        </div>
+        <div class="toolbar-right">
+            <select class="dataset-select" @onchange="OnDatasetChanged">
+                <option value="">Select dataset...</option>
+                @foreach (var ds in _datasets)
+                {
+                    <option value="@ds.Id">@ds.Name (v@ds.Version — @FormatBytes(ds.SizeBytes))</option>
+                }
+            </select>
+            @if (_selectedDataset is not null)
+            {
+                <button class="btn btn-sm" @onclick="ProfileDataset" disabled="@_isProfiling">
+                    @(_isProfiling ? "⏳ Profiling..." : "📊 Profile")
+                </button>
+            }
+        </div>
+    </header>
+
+    <div class="viewer-layout">
+        @if (_selectedDataset is null)
+        {
+            <div class="empty-state">
+                <div class="empty-icon">📊</div>
+                <h3>Select a Dataset</h3>
+                <p>Choose a dataset from the dropdown to view its contents.</p>
+            </div>
+        }
+        else if (_isLoadingPreview)
+        {
+            <div class="loading-state">
+                <div class="spinner"></div>
+                <p>Loading preview...</p>
+            </div>
+        }
+        else
+        {
+            <!-- Dataset Info Bar -->
+            <div class="dataset-info-bar">
+                <span>📄 @_selectedDataset.Name</span>
+                <span>📐 @_selectedDataset.RowCount.ToString("N0") rows × @_selectedDataset.ColumnCount cols</span>
+                <span>📁 @_selectedDataset.Format</span>
+                <span>💾 @FormatBytes(_selectedDataset.SizeBytes)</span>
+                <span>📍 @_selectedDataset.StorageLocation</span>
+            </div>
+
+            <div class="viewer-content">
+                <!-- Data Grid -->
+                <div class="data-grid-container">
+                    @if (_preview is not null)
+                    {
+                        <div class="grid-info">
+                            <small>Showing @_preview.Rows.Count of @_preview.TotalRows rows</small>
+                            @if (!string.IsNullOrWhiteSpace(_filterText))
+                            {
+                                <small> · Filtered: @_filteredRows.Count matches</small>
+                            }
+                        </div>
+
+                        <div class="filter-bar">
+                            <input type="text" @bind="_filterText" @bind:event="oninput"
+                                   placeholder="🔎 Filter rows..." class="filter-input" />
+                            <select @bind="_sortColumn" class="sort-select">
+                                <option value="">Sort by...</option>
+                                @foreach (var col in _preview.Columns)
+                                {
+                                    <option value="@col">@col</option>
+                                }
+                            </select>
+                            <button class="btn btn-xs" @onclick="ToggleSortDirection">
+                                @(_sortAsc ? "↑ Asc" : "↓ Desc")
+                            </button>
+                        </div>
+
+                        <div class="data-table-wrapper">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th class="row-num">#</th>
+                                        @foreach (var col in _preview.Columns)
+                                        {
+                                            <th @onclick="() => SortBy(col)" class="sortable">
+                                                @col
+                                                @if (_sortColumn == col)
+                                                {
+                                                    <span>@(_sortAsc ? "▲" : "▼")</span>
+                                                }
+                                            </th>
+                                        }
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @{ var rows = GetDisplayRows(); }
+                                    @for (int i = 0; i < rows.Count; i++)
+                                    {
+                                        <tr>
+                                            <td class="row-num">@(i + 1)</td>
+                                            @foreach (var cell in rows[i])
+                                            {
+                                                <td class="@GetCellClass(cell)">@cell</td>
+                                            }
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+
+                <!-- Profile Panel (right side) -->
+                @if (_profile is not null)
+                {
+                    <div class="profile-panel">
+                        <div class="profile-header">
+                            <h3>📊 Data Profile</h3>
+                            <span class="quality-badge quality-@GetQualityLevel(_profile.QualityScore)">
+                                Quality: @_profile.QualityScore.ToString("F0")%
+                            </span>
+                        </div>
+                        <div class="profile-body">
+                            @foreach (var col in _profile.ColumnProfiles)
+                            {
+                                <div class="column-profile">
+                                    <div class="col-name">@col.ColumnName</div>
+                                    <div class="col-type">@col.InferredType</div>
+                                    <div class="col-stats">
+                                        <span>Nulls: @col.NullCount (@col.NullPercentage.ToString("F1")%)</span>
+                                        <span>Unique: @col.UniqueCount</span>
+                                        @if (col.Mean.HasValue)
+                                        {
+                                            <span>Mean: @col.Mean.Value.ToString("F2")</span>
+                                            <span>Std: @col.StdDev?.ToString("F2")</span>
+                                            <span>Min: @col.Min?.ToString("F2")</span>
+                                            <span>Max: @col.Max?.ToString("F2")</span>
+                                        }
+                                    </div>
+                                    <div class="null-bar">
+                                        <div class="null-fill" style="width: @col.NullPercentage%"></div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<Dataset> _datasets = [];
+    private Dataset? _selectedDataset;
+    private DatasetPreview? _preview;
+    private DataProfileView? _profile;
+    private bool _isLoadingPreview;
+    private bool _isProfiling;
+
+    // Filtering & sorting
+    private string _filterText = "";
+    private string _sortColumn = "";
+    private bool _sortAsc = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _datasets = (await DatasetService.GetAllAsync()).ToList();
+    }
+
+    private async Task OnDatasetChanged(ChangeEventArgs e)
+    {
+        var idStr = e.Value?.ToString();
+        if (string.IsNullOrEmpty(idStr) || !Guid.TryParse(idStr, out var id))
+        {
+            _selectedDataset = null;
+            _preview = null;
+            _profile = null;
+            return;
+        }
+
+        _selectedDataset = _datasets.FirstOrDefault(d => d.Id == id);
+        _profile = null;
+        _filterText = "";
+        _sortColumn = "";
+
+        if (_selectedDataset is not null)
+        {
+            _isLoadingPreview = true;
+            StateHasChanged();
+
+            _preview = await DatasetService.GetPreviewAsync(_selectedDataset.Id, 200);
+            _isLoadingPreview = false;
+        }
+    }
+
+    private async Task ProfileDataset()
+    {
+        if (_selectedDataset is null) return;
+
+        _isProfiling = true;
+        StateHasChanged();
+
+        try
+        {
+            var fullProfile = await ProfilingService.ProfileDatasetAsync(_selectedDataset.Id);
+            _profile = new DataProfileView
+            {
+                QualityScore = fullProfile.QualityScore.OverallScore,
+                ColumnProfiles = fullProfile.Columns.Select(c => new ColumnProfileView
+                {
+                    ColumnName = c.Name,
+                    InferredType = c.InferredType?.ToString() ?? c.DataType.ToString(),
+                    NullCount = c.MissingCount,
+                    NullPercentage = c.MissingPercentage,
+                    UniqueCount = c.UniqueCount,
+                    Mean = c.Mean,
+                    StdDev = c.StandardDeviation,
+                    Min = c.Min,
+                    Max = c.Max
+                }).ToList()
+            };
+        }
+        catch
+        {
+            // Profiling may fail if Python engine is offline
+        }
+        finally
+        {
+            _isProfiling = false;
+        }
+    }
+
+    private List<IReadOnlyList<string>> _filteredRows => FilterAndSortRows();
+
+    private List<IReadOnlyList<string>> FilterAndSortRows()
+    {
+        if (_preview is null) return [];
+
+        var rows = _preview.Rows.ToList();
+
+        if (!string.IsNullOrWhiteSpace(_filterText))
+        {
+            rows = rows.Where(r => r.Any(c => c.Contains(_filterText, StringComparison.OrdinalIgnoreCase))).ToList();
+        }
+
+        if (!string.IsNullOrEmpty(_sortColumn))
+        {
+            var colIndex = _preview.Columns.ToList().IndexOf(_sortColumn);
+            if (colIndex >= 0)
+            {
+                rows = _sortAsc
+                    ? rows.OrderBy(r => r.Count > colIndex ? r[colIndex] : "").ToList()
+                    : rows.OrderByDescending(r => r.Count > colIndex ? r[colIndex] : "").ToList();
+            }
+        }
+
+        return rows;
+    }
+
+    private List<IReadOnlyList<string>> GetDisplayRows() => _filteredRows;
+
+    private void SortBy(string column)
+    {
+        if (_sortColumn == column)
+            _sortAsc = !_sortAsc;
+        else
+        {
+            _sortColumn = column;
+            _sortAsc = true;
+        }
+    }
+
+    private void ToggleSortDirection() => _sortAsc = !_sortAsc;
+
+    private static string GetCellClass(string value) =>
+        string.IsNullOrEmpty(value) || value is "NaN" or "None" or "null" ? "null-cell" : "";
+
+    private static string GetQualityLevel(double score) => score switch
+    {
+        >= 90 => "high",
+        >= 70 => "medium",
+        _ => "low"
+    };
+
+    private static string FormatBytes(long bytes) => bytes switch
+    {
+        < 1024 => $"{bytes} B",
+        < 1024 * 1024 => $"{bytes / 1024.0:F1} KB",
+        < 1024 * 1024 * 1024 => $"{bytes / (1024.0 * 1024):F1} MB",
+        _ => $"{bytes / (1024.0 * 1024 * 1024):F2} GB"
+    };
+
+    // View models for profile display
+    private sealed class DataProfileView
+    {
+        public double QualityScore { get; init; }
+        public List<ColumnProfileView> ColumnProfiles { get; init; } = [];
+    }
+
+    private sealed class ColumnProfileView
+    {
+        public string ColumnName { get; init; } = "";
+        public string InferredType { get; init; } = "";
+        public int NullCount { get; init; }
+        public double NullPercentage { get; init; }
+        public int UniqueCount { get; init; }
+        public double? Mean { get; init; }
+        public double? StdDev { get; init; }
+        public double? Min { get; init; }
+        public double? Max { get; init; }
+    }
+}

@@ -1,0 +1,63 @@
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31919.166
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AIMRAN Data Science Lab", "AIMRAN Data Science Lab\AIMRAN Data Science Lab.csproj", "{A1B2C3D4-E5F6-4708-B9A0-01C2D3E4F5A6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AimranDataScienceLab.Core", "AIMRAN Data Science Lab\AimranDataScienceLab.Core\AimranDataScienceLab.Core.csproj", "{F1E2D3C4-B5A6-4708-89A0-01C2D3E4F5B6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AimranDataScienceLab.Engine", "AIMRAN Data Science Lab\AimranDataScienceLab.Engine\AimranDataScienceLab.Engine.csproj", "{D1E2F3C4-B5A6-4708-89A0-01C2D3E4F5C6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AimranDataScienceLab.Gateway", "AIMRAN Data Science Lab\AimranDataScienceLab.Gateway\AimranDataScienceLab.Gateway.csproj", "{C1E2F3D4-B5A6-4708-89A0-01C2D3E4F5D6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AimranDataScienceLab.Web", "AIMRAN Data Science Lab\AimranDataScienceLab.Web\AimranDataScienceLab.Web.csproj", "{B1E2F3D4-C5A6-4708-89A0-01C2D3E4F5E6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AimranDataScienceLab.Engine.Tests", "AIMRAN Data Science Lab\AimranDataScienceLab.Engine.Tests\AimranDataScienceLab.Engine.Tests.csproj", "{A1E2F3D4-C5A6-4708-89A0-01C2D3E4F5F6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AimranDataScienceLab.ServiceTemplates", "AIMRAN Data Science Lab\AimranDataScienceLab.ServiceTemplates\AimranDataScienceLab.ServiceTemplates.csproj", "{E1F2D3C5-C5B7-4809-80A1-02B3C4D5E6F7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AimranDataScienceLab.Shared", "AIMRAN Data Science Lab\AimranDataScienceLab.Shared\AimranDataScienceLab.Shared.csproj", "{91E2F3D4-A5B6-4708-89A0-01C2D3E4F5A7}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A1B2C3D4-E5F6-4708-B9A0-01C2D3E4F5A6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-E5F6-4708-B9A0-01C2D3E4F5A6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-E5F6-4708-B9A0-01C2D3E4F5A6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-E5F6-4708-B9A0-01C2D3E4F5A6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F1E2D3C4-B5A6-4708-89A0-01C2D3E4F5B6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F1E2D3C4-B5A6-4708-89A0-01C2D3E4F5B6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F1E2D3C4-B5A6-4708-89A0-01C2D3E4F5B6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F1E2D3C4-B5A6-4708-89A0-01C2D3E4F5B6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D1E2F3C4-B5A6-4708-89A0-01C2D3E4F5C6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D1E2F3C4-B5A6-4708-89A0-01C2D3E4F5C6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D1E2F3C4-B5A6-4708-89A0-01C2D3E4F5C6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D1E2F3C4-B5A6-4708-89A0-01C2D3E4F5C6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C1E2F3D4-B5A6-4708-89A0-01C2D3E4F5D6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C1E2F3D4-B5A6-4708-89A0-01C2D3E4F5D6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C1E2F3D4-B5A6-4708-89A0-01C2D3E4F5D6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C1E2F3D4-B5A6-4708-89A0-01C2D3E4F5D6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B1E2F3D4-C5A6-4708-89A0-01C2D3E4F5E6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B1E2F3D4-C5A6-4708-89A0-01C2D3E4F5E6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B1E2F3D4-C5A6-4708-89A0-01C2D3E4F5E6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B1E2F3D4-C5A6-4708-89A0-01C2D3E4F5E6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1E2F3D4-C5A6-4708-89A0-01C2D3E4F5F6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1E2F3D4-C5A6-4708-89A0-01C2D3E4F5F6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1E2F3D4-C5A6-4708-89A0-01C2D3E4F5F6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1E2F3D4-C5A6-4708-89A0-01C2D3E4F5F6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E1F2D3C5-C5B7-4809-80A1-02B3C4D5E6F7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E1F2D3C5-C5B7-4809-80A1-02B3C4D5E6F7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E1F2D3C5-C5B7-4809-80A1-02B3C4D5E6F7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E1F2D3C5-C5B7-4809-80A1-02B3C4D5E6F7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{91E2F3D4-A5B6-4708-89A0-01C2D3E4F5A7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{91E2F3D4-A5B6-4708-89A0-01C2D3E4F5A7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{91E2F3D4-A5B6-4708-89A0-01C2D3E4F5A7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{91E2F3D4-A5B6-4708-89A0-01C2D3E4F5A7}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

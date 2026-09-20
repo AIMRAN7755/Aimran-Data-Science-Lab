@@ -1,0 +1,287 @@
+version: '3.9'
+
+# AIMRAN Data Science Lab - Full Stack Deployment
+# This docker-compose file deploys a complete AIMRAN stack locally
+# Includes infrastructure services and all role-specific services
+
+networks:
+  aimran-network:
+    driver: bridge
+
+volumes:
+  registry-data:
+  broker-data:
+  monitoring-data:
+  postgres-data:
+
+services:
+  # ========== INFRASTRUCTURE SERVICES ==========
+
+  service-registry:
+    image: aimran/service-registry:latest
+    container_name: aimran-registry
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ServiceRegistry__Port=5000
+      - Logging__LogLevel__Default=Information
+    ports:
+      - "5001:5000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - aimran-network
+    volumes:
+      - registry-data:/data
+    restart: unless-stopped
+
+  ipc-broker:
+    image: aimran/ipc-broker:latest
+    container_name: aimran-broker
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - IPCBroker__Port=5000
+      - IPCBroker__MaxConnections=1000
+      - Logging__LogLevel__Default=Information
+    depends_on:
+      - service-registry
+    ports:
+      - "5002:5000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - aimran-network
+    volumes:
+      - broker-data:/data
+    restart: unless-stopped
+
+  service-gateway:
+    image: aimran/service-gateway:latest
+    container_name: aimran-gateway
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ServiceGateway__Port=5000
+      - Registry__Url=http://service-registry:5000
+      - Logging__LogLevel__Default=Information
+    depends_on:
+      - service-registry
+    ports:
+      - "8080:5000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - aimran-network
+    restart: unless-stopped
+
+  monitoring-service:
+    image: aimran/monitoring-service:latest
+    container_name: aimran-monitoring
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - Monitoring__Port=5000
+      - Logging__LogLevel__Default=Information
+    depends_on:
+      - service-registry
+    ports:
+      - "5003:5000"
+      - "9090:9090"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - aimran-network
+    volumes:
+      - monitoring-data:/data
+    restart: unless-stopped
+
+  # ========== DATABASE SERVICE ==========
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: aimran-postgres
+    environment:
+      - POSTGRES_USER=aimran
+      - POSTGRES_PASSWORD=aimran_dev_password
+      - POSTGRES_DB=aimran_data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aimran"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aimran-network
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  # ========== ROLE-SPECIFIC SERVICES ==========
+
+  analyst-service:
+    image: aimran/analyst-service:latest
+    container_name: aimran-analyst
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - AnalystService__Port=5000
+      - Registry__Url=http://service-registry:5000
+      - IPCBroker__Url=http://ipc-broker:5000
+      - Database__ConnectionString=Host=postgres;Username=aimran;Password=aimran_dev_password;Database=aimran_data
+      - Logging__LogLevel__Default=Information
+      - ANALYST_MODE=true
+      - QUERY_CACHE_ENABLED=true
+    depends_on:
+      - service-registry
+      - ipc-broker
+      - postgres
+    ports:
+      - "5010:5000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - aimran-network
+    restart: unless-stopped
+
+  scientist-service:
+    image: aimran/scientist-service:latest
+    container_name: aimran-scientist
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ScientistService__Port=5000
+      - Registry__Url=http://service-registry:5000
+      - IPCBroker__Url=http://ipc-broker:5000
+      - ModelRegistry__Url=http://model-registry:5000
+      - Logging__LogLevel__Default=Information
+      - SCIENTIST_MODE=true
+      - EXPERIMENT_TRACKING_ENABLED=true
+      - DISTRIBUTED_TRAINING_ENABLED=false
+    depends_on:
+      - service-registry
+      - ipc-broker
+    ports:
+      - "5011:5000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - aimran-network
+    restart: unless-stopped
+
+  engineer-service:
+    image: aimran/engineer-service:latest
+    container_name: aimran-engineer
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - EngineerService__Port=5000
+      - Registry__Url=http://service-registry:5000
+      - IPCBroker__Url=http://ipc-broker:5000
+      - Database__ConnectionString=Host=postgres;Username=aimran;Password=aimran_dev_password;Database=aimran_data
+      - Logging__LogLevel__Default=Information
+      - ENGINEER_MODE=true
+      - PIPELINE_ORCHESTRATION_ENABLED=true
+      - ETL_PROCESSING_ENABLED=true
+    depends_on:
+      - service-registry
+      - ipc-broker
+      - postgres
+    ports:
+      - "5012:5000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - aimran-network
+    restart: unless-stopped
+
+  ai-engineer-service:
+    image: aimran/ai-engineer-service:latest
+    container_name: aimran-ai-engineer
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - AIEngineerService__Port=5000
+      - Registry__Url=http://service-registry:5000
+      - IPCBroker__Url=http://ipc-broker:5000
+      - ModelRegistry__Url=http://model-registry:5000
+      - Logging__LogLevel__Default=Information
+      - AI_ENGINEER_MODE=true
+      - INFERENCE_OPTIMIZATION_ENABLED=true
+      - AB_TESTING_ENABLED=true
+    depends_on:
+      - service-registry
+      - ipc-broker
+    ports:
+      - "5013:5000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - aimran-network
+    restart: unless-stopped
+
+  # ========== OPTIONAL SUPPORTING SERVICES ==========
+
+  model-registry:
+    image: aimran/model-registry:latest
+    container_name: aimran-model-registry
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ModelRegistry__Port=5000
+      - Registry__Url=http://service-registry:5000
+      - Logging__LogLevel__Default=Information
+    depends_on:
+      - service-registry
+    ports:
+      - "5020:5000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - aimran-network
+    restart: unless-stopped
+
+  # Portainer for container management (optional)
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: aimran-portainer
+    ports:
+      - "8000:8000"
+      - "9000:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer-data:/data
+    networks:
+      - aimran-network
+    restart: unless-stopped
+
+volumes:
+  portainer-data:

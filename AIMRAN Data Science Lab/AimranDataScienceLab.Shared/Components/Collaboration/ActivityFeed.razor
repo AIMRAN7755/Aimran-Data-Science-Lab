@@ -1,0 +1,567 @@
+@implements IAsyncDisposable
+@inject NavigationManager Navigation
+@using Microsoft.AspNetCore.SignalR.Client
+
+<div class="activity-feed-container">
+    <div class="feed-header">
+        <h4>
+            <span class="feed-icon">📋</span>
+            Team Activity
+        </h4>
+        <div class="feed-controls">
+            <select class="filter-dropdown" @onchange="OnFilterChanged">
+                <option value="">All Activities</option>
+                <option value="ModelCreated">Model Created</option>
+                <option value="DatasetCleaned">Dataset Cleaned</option>
+                <option value="PipelineExecuted">Pipeline Executed</option>
+                <option value="CommentAdded">Comment Added</option>
+                <option value="ApprovalRequested">Approval Requested</option>
+            </select>
+            <button class="clear-btn" @onclick="ClearActivityFeed" title="Clear feed">🗑️</button>
+        </div>
+    </div>
+
+    @if (FilteredActivities.Count == 0)
+    {
+        <div class="empty-state">
+            <p class="text-muted">No activities yet</p>
+        </div>
+    }
+    else
+    {
+        <div class="activity-list" @ref="feedRef">
+            @foreach (var activity in FilteredActivities)
+            {
+                <div class="activity-item" data-activity-id="@activity.Id">
+                    <div class="activity-icon">
+                        @GetActivityIcon(activity.ActivityType)
+                    </div>
+
+                    <div class="activity-content">
+                        <div class="activity-header">
+                            <span class="user-name">@activity.UserName</span>
+                            <span class="activity-type">@FormatActivityType(activity.ActivityType)</span>
+                        </div>
+
+                        <div class="activity-description">
+                            @activity.Description
+                        </div>
+
+                        <div class="activity-metadata">
+                            @if (!string.IsNullOrEmpty(activity.ResourceType))
+                            {
+                                <span class="metadata-item">
+                                    <span class="label">Resource:</span>
+                                    <span class="value">@activity.ResourceType</span>
+                                </span>
+                            }
+
+                            @if (!string.IsNullOrEmpty(activity.UserRole))
+                            {
+                                <span class="metadata-item">
+                                    <span class="role-badge" style="@GetRoleStyle(activity.UserRole)">
+                                        @GetRoleIcon(activity.UserRole) @activity.UserRole
+                                    </span>
+                                </span>
+                            }
+
+                            <span class="timestamp" title="@activity.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")">
+                                @GetTimeAgo(activity.CreatedAt)
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="activity-actions">
+                        <button class="action-btn" 
+                                @onclick="@(() => OnActivityClicked(activity))"
+                                title="View details">
+                            →
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    @if (ShowLoadMore && Activities.Count > FilteredActivities.Count)
+    {
+        <div class="load-more-section">
+            <button class="load-more-btn" @onclick="LoadMoreActivities">
+                Load More (showing @FilteredActivities.Count of @Activities.Count)
+            </button>
+        </div>
+    }
+
+    @if (Activities.Count > 0)
+    {
+        <div class="feed-footer">
+            <small class="text-muted">
+                Showing last @Math.Min(50, FilteredActivities.Count) activities from @GetActivityTimespan()
+            </small>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string? ProjectId { get; set; }
+
+    [Parameter]
+    public int MaxVisibleItems { get; set; } = 20;
+
+    [Parameter]
+    public EventCallback<ActivityViewModel> OnActivitySelected { get; set; }
+
+    private List<ActivityViewModel> Activities { get; set; } = new();
+    private List<ActivityViewModel> FilteredActivities { get; set; } = new();
+    private string CurrentFilter { get; set; } = "";
+    private HubConnection? HubConnection;
+    private ElementReference feedRef;
+    private bool ShowLoadMore { get; set; }
+    private int DisplayCount { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        HubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/collaborationhub"))
+            .WithAutomaticReconnect()
+            .Build();
+
+        // Register event handlers
+        HubConnection.On<dynamic>("ActivityLogged", async (activity) =>
+        {
+            await AddActivityToFeed(activity);
+            await InvokeAsync(StateHasChanged);
+            await ScrollToBottom();
+        });
+
+        HubConnection.On<dynamic>("CommentAdded", async (comment) =>
+        {
+            await AddActivityToFeed(new
+            {
+                userName = comment.userName,
+                activityType = "CommentAdded",
+                description = $"Added comment: {comment.content}",
+                resourceId = comment.resourceId,
+                resourceType = "Comment",
+                timestamp = DateTime.UtcNow,
+                userRole = "DataAnalyst" // Would be from actual user data
+            });
+            await InvokeAsync(StateHasChanged);
+        });
+
+        HubConnection.On<dynamic>("EditReceived", async (edit) =>
+        {
+            await AddActivityToFeed(new
+            {
+                userName = edit.userName,
+                activityType = "ResourceEdited",
+                description = "Made edits to resource",
+                resourceId = edit.resourceId,
+                resourceType = "Edit",
+                timestamp = edit.timestamp,
+                userRole = "DataScientist"
+            });
+            await InvokeAsync(StateHasChanged);
+        });
+
+        HubConnection.On<dynamic>("ApprovalRequested", async (approval) =>
+        {
+            await AddActivityToFeed(new
+            {
+                userName = approval.requestedBy,
+                activityType = "ApprovalRequested",
+                description = $"Requested approval: {approval.changeDescription}",
+                resourceId = approval.approvalId,
+                resourceType = "Approval",
+                timestamp = DateTime.UtcNow,
+                userRole = "DataEngineer"
+            });
+            await InvokeAsync(StateHasChanged);
+        });
+
+        await HubConnection.StartAsync();
+        DisplayCount = MaxVisibleItems;
+        RefreshFilteredActivities();
+    }
+
+    private async Task AddActivityToFeed(dynamic activity)
+    {
+        var activityItem = new ActivityViewModel
+        {
+            Id = Guid.NewGuid().ToString(),
+            UserName = activity.userName,
+            ActivityType = activity.activityType,
+            Description = activity.description,
+            ResourceId = activity.resourceId ?? "",
+            ResourceType = activity.resourceType ?? "",
+            CreatedAt = activity.timestamp ?? DateTime.UtcNow,
+            UserRole = activity.userRole ?? ""
+        };
+
+        Activities.Insert(0, activityItem);
+
+        // Keep only last 500 activities in memory
+        if (Activities.Count > 500)
+        {
+            Activities.RemoveRange(500, Activities.Count - 500);
+        }
+
+        RefreshFilteredActivities();
+    }
+
+    private void OnFilterChanged(ChangeEventArgs e)
+    {
+        CurrentFilter = e.Value?.ToString() ?? "";
+        RefreshFilteredActivities();
+    }
+
+    private void RefreshFilteredActivities()
+    {
+        FilteredActivities = string.IsNullOrEmpty(CurrentFilter)
+            ? Activities.Take(DisplayCount).ToList()
+            : Activities.Where(a => a.ActivityType == CurrentFilter).Take(DisplayCount).ToList();
+
+        ShowLoadMore = FilteredActivities.Count < Activities.Count && DisplayCount < Activities.Count;
+    }
+
+    private void LoadMoreActivities()
+    {
+        DisplayCount += MaxVisibleItems;
+        RefreshFilteredActivities();
+    }
+
+    private void ClearActivityFeed()
+    {
+        Activities.Clear();
+        FilteredActivities.Clear();
+        DisplayCount = MaxVisibleItems;
+        ShowLoadMore = false;
+    }
+
+    private async Task OnActivityClicked(ActivityViewModel activity)
+    {
+        await OnActivitySelected.InvokeAsync(activity);
+    }
+
+    private async Task ScrollToBottom()
+    {
+        try
+        {
+            await Task.Delay(100);
+            // Would use JS interop to scroll here
+        }
+        catch
+        {
+            // Ignore scroll errors
+        }
+    }
+
+    private string GetActivityIcon(string activityType) => activityType switch
+    {
+        "ModelCreated" => "🤖",
+        "ModelTrained" => "🎓",
+        "ModelDeployed" => "🚀",
+        "DatasetCleaned" => "🧹",
+        "DatasetCreated" => "📊",
+        "PipelineExecuted" => "⚙️",
+        "CommentAdded" => "💬",
+        "ApprovalRequested" => "✅",
+        "ApprovalApproved" => "👍",
+        "ResourceEdited" => "✏️",
+        "ReportGenerated" => "📈",
+        _ => "📝"
+    };
+
+    private string FormatActivityType(string activityType)
+    {
+        return System.Text.RegularExpressions.Regex.Replace(
+            activityType,
+            "(?<!^)(?=[A-Z])",
+            " ");
+    }
+
+    private string GetRoleIcon(string roleType) => roleType?.ToLower() switch
+    {
+        "dataanalyst" => "📊",
+        "datascientist" => "🧪",
+        "dataengineer" => "⚙️",
+        "aiengineer" => "🤖",
+        _ => "👤"
+    };
+
+    private string GetRoleStyle(string roleType) => roleType?.ToLower() switch
+    {
+        "dataanalyst" => "background-color: #e3f2fd; color: #1565c0;",
+        "datascientist" => "background-color: #f3e5f5; color: #6a1b9a;",
+        "dataengineer" => "background-color: #ffe0b2; color: #e65100;",
+        "aiengineer" => "background-color: #f0f4c3; color: #827717;",
+        _ => "background-color: #f0f0f0; color: #666;"
+    };
+
+    private string GetTimeAgo(DateTime dateTime)
+    {
+        var span = DateTime.UtcNow - dateTime;
+        return span.TotalSeconds < 60 ? "just now"
+            : span.TotalMinutes < 60 ? $"{(int)span.TotalMinutes}m ago"
+            : span.TotalHours < 24 ? $"{(int)span.TotalHours}h ago"
+            : $"{(int)span.TotalDays}d ago";
+    }
+
+    private string GetActivityTimespan()
+    {
+        if (Activities.Count == 0) return "today";
+        var oldest = Activities.Last().CreatedAt;
+        var span = DateTime.UtcNow - oldest;
+        return span.TotalMinutes < 60 ? "the last hour"
+            : span.TotalHours < 24 ? "today"
+            : $"the last {(int)span.TotalDays} days";
+    }
+
+    public class ActivityViewModel
+    {
+        public string Id { get; set; } = string.Empty;
+        public string UserName { get; set; } = string.Empty;
+        public string ActivityType { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string ResourceId { get; set; } = string.Empty;
+        public string ResourceType { get; set; } = string.Empty;
+        public DateTime CreatedAt { get; set; }
+        public string UserRole { get; set; } = string.Empty;
+    }
+
+    async ValueTask IAsyncDisposable.DisposeAsync()
+    {
+        if (HubConnection is not null)
+        {
+            await HubConnection.DisposeAsync();
+        }
+    }
+}
+
+<style scoped>
+.activity-feed-container {
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    max-height: 600px;
+}
+
+.feed-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    border-bottom: 2px solid #f0f0f0;
+    flex-shrink: 0;
+}
+
+.feed-header h4 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.feed-icon {
+    font-size: 20px;
+}
+
+.feed-controls {
+    display: flex;
+    gap: 8px;
+}
+
+.filter-dropdown {
+    padding: 6px 10px;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    font-size: 12px;
+    background: white;
+    cursor: pointer;
+}
+
+.clear-btn {
+    padding: 6px 10px;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    background: white;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.clear-btn:hover {
+    background-color: #f5f5f5;
+}
+
+.empty-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    padding: 40px 20px;
+    text-align: center;
+    background: #f9f9f9;
+}
+
+.activity-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+}
+
+.activity-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px;
+    margin-bottom: 8px;
+    border-radius: 6px;
+    background: #f9f9f9;
+    border-left: 3px solid #007bff;
+    transition: background-color 0.2s;
+}
+
+.activity-item:hover {
+    background: #f0f0f0;
+}
+
+.activity-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+}
+
+.activity-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.activity-header {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 4px;
+    align-items: center;
+}
+
+.user-name {
+    font-weight: 600;
+    color: #333;
+}
+
+.activity-type {
+    display: inline-block;
+    background: #e3f2fd;
+    color: #1565c0;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.activity-description {
+    font-size: 13px;
+    color: #555;
+    margin-bottom: 6px;
+    word-break: break-word;
+}
+
+.activity-metadata {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 11px;
+    align-items: center;
+}
+
+.metadata-item {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.label {
+    color: #999;
+    font-weight: 500;
+}
+
+.value {
+    color: #666;
+}
+
+.role-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.timestamp {
+    color: #999;
+    white-space: nowrap;
+}
+
+.activity-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.action-btn {
+    padding: 4px 8px;
+    border: 1px solid #e0e0e0;
+    background: white;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+
+.action-btn:hover {
+    background: #f0f0f0;
+}
+
+.load-more-section {
+    padding: 12px;
+    text-align: center;
+    border-top: 1px solid #f0f0f0;
+    flex-shrink: 0;
+}
+
+.load-more-btn {
+    padding: 8px 16px;
+    border: 1px solid #007bff;
+    background: white;
+    color: #007bff;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.load-more-btn:hover {
+    background: #007bff;
+    color: white;
+}
+
+.feed-footer {
+    padding: 8px 12px;
+    border-top: 1px solid #f0f0f0;
+    background: #f9f9f9;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.text-muted {
+    color: #6c757d;
+}
+</style>

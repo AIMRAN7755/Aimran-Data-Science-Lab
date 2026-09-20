@@ -1,0 +1,108 @@
+@namespace AimranDataScienceLab.Shared.Components.UI
+@implements IAsyncDisposable
+@using MudBlazor
+
+<div class="data-science-card @($"card-{Variant}") @AdditionalClass" @onclick="OnCardClicked" style="@CardStyle">
+    @if (!string.IsNullOrEmpty(Icon))
+    {
+        <div class="card-icon">
+            <MudIcon Icon="@Icon" Size="@IconSize" Color="@IconColor" />
+        </div>
+    }
+
+    <div class="card-content">
+        @if (!string.IsNullOrEmpty(Title))
+        {
+            <h3 class="card-title">@Title</h3>
+        }
+
+        <div class="card-body">
+            @if (ChildContent != null)
+            {
+                @ChildContent
+            }
+            else if (!string.IsNullOrEmpty(Description))
+            {
+                <p class="card-description">@Description</p>
+            }
+        </div>
+    </div>
+
+    @if (Badge != null)
+    {
+        <div class="card-badge">
+            @Badge
+        </div>
+    }
+
+    @if (ShowFooter && FooterContent != null)
+    {
+        <div class="card-footer">
+            @FooterContent
+        </div>
+    }
+</div>
+
+@code {
+    /// <summary>Card variant: default, success, warning, error, info, data-science</summary>
+    [Parameter]
+    public string Variant { get; set; } = "default";
+
+    /// <summary>Card title/heading</summary>
+    [Parameter]
+    public string? Title { get; set; }
+
+    /// <summary>Card description text</summary>
+    [Parameter]
+    public string? Description { get; set; }
+
+    /// <summary>Icon to display (Material Design Icons)</summary>
+    [Parameter]
+    public string? Icon { get; set; }
+
+    /// <summary>Icon size</summary>
+    [Parameter]
+    public Size IconSize { get; set; } = Size.Large;
+
+    /// <summary>Icon color</summary>
+    [Parameter]
+    public Color IconColor { get; set; } = Color.Primary;
+
+    /// <summary>Additional CSS class</summary>
+    [Parameter]
+    public string? AdditionalClass { get; set; }
+
+    /// <summary>Inline styles</summary>
+    [Parameter]
+    public string? CardStyle { get; set; }
+
+    /// <summary>Badge content (RenderFragment)</summary>
+    [Parameter]
+    public RenderFragment? Badge { get; set; }
+
+    /// <summary>Show footer</summary>
+    [Parameter]
+    public bool ShowFooter { get; set; } = false;
+
+    /// <summary>Footer content</summary>
+    [Parameter]
+    public RenderFragment? FooterContent { get; set; }
+
+    /// <summary>Child content</summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>Click callback</summary>
+    [Parameter]
+    public EventCallback OnClick { get; set; }
+
+    private async Task OnCardClicked()
+    {
+        await OnClick.InvokeAsync();
+    }
+
+    async ValueTask IAsyncDisposable.DisposeAsync()
+    {
+        await Task.CompletedTask;
+    }
+}
